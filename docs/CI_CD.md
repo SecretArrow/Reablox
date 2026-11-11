@@ -1,227 +1,139 @@
-# CI/CD Reablox — Build APK, Release & Auto-Fix
+# CI/CD Reablox — Quality Gate, Build Signed, E2E, Release & Auto-Fix
 
 Dokumentasi pipeline CI/CD GitHub Actions untuk proyek Godot 4.4 **Reablox** (Android).
-Semua workflow hanya memakai `${{ secrets.GITHUB_TOKEN }}` bawaan GitHub — tidak ada
-PAT/token keras yang disimpan di repo.
+Prinsip: **tanpa build lokal** — semua lint, test, build, signing, dan rilis terjadi
+di GitHub Actions. Credential signing disimpan sebagai **GitHub Secrets** (tidak pernah
+ada di repo maupun log).
 
 ## Diagram alur (teks)
 
 ```text
-                         ┌────────────────────────────────────────────┐
-   push/PR ke main ─────►│  Workflow: Build Android APK (build.yml)   │
-   tag push v*      ────►│  (juga: manual workflow_dispatch)          │
-                         └───────────────────┬────────────────────────┘
-                                             │ job "build"
-                     Checkout → Java 17 → Android SDK 34 → cache/install Godot 4.4.1
-                     → debug keystore → pasang template gradle (android/build)
-                     → godot --import → godot --export-release "Android"
-                         │                     │ gagal?
-                         │                     └── fallback: preset "Android-Quick"
-                         │                          (prebuilt, tanpa gradle)
-                     cek ukuran APK ≤ 300 MB → upload artifact "Reablox-Android"
-                                             │
-              ┌──────────────────────────────┼───────────────────────────────┐
-              │ push ke main?                │ tag v* atau input             │
-              ▼                              │ create_release = true?        │
-   ┌──────────────────────┐                  ▼                               │
-   │ job "dev-release"    │       ┌──────────────────────┐                   │
-   │ pre-release persisten│       │ job "tag-release"    │                   │
-   │ "dev-build" (upsert) │       │ GitHub Release + APK │                   │
-   └──────────────────────┘       └──────────────────────┘                   │
-                                             │
-                         build GAGAL? ──► trigger (workflow_run: completed)
-                                             ▼
-                         ┌────────────────────────────────────────────┐
-                         │  Workflow: CI Auto-Fix (autofix.yml)       │
-                         │  python tools/ci_autofix.py                │
-                         └────────────────────────────────────────────┘
+push (branch apapun) / PR ──► ci.yml  ── Lint (gdlint + gdformat --check)
+                             quality    └─ Unit+Integration+Gameplay tests (headless)
+                             gate         (9 scene, 982+ checks, incl. policy FREE)
+
+push ke main / tag v* ──► android-build.yml
+                          ├─ job quality-gate (lint+test ulang — build hanya
+                          │   setelah gate hijau)
+                          ├─ job build: decode keystore dari Secrets
+                          │   → export APK (universal + 3 ABI split)
+                          │   → verifikasi signature (apksigner, tolak debug key
+                          │     untuk rilis) → cek ukuran → artifact Reablox-Android
+                          ├─ job screenshots: render 5 pratinjau 1080p (Xvfb+Mesa)
+                          ├─ job e2e-test: universal-apk-test.yml
+                          │   (SMOKE di main; STANDARD untuk tag) — install APK di
+                          │   emulator, launch, crash-detect, explore otonom
+                          └─ job dev-release (hanya push main): upsert pre-release
+                              "dev-build" (signed, split per ABI)
+
+tag v* (setelah build sukses) ──► release.yml ── GitHub Release stabil
+                                 (download artifact run build → verifikasi ulang
+                                  signature → terbitkan release + notes)
+
+gagal? ──► autofix.yml (workflow_run: failure)
+           └─ tools/ci_autofix.py: ambil log → gdformat + sync_locales →
+              commit "[autofix]" → push (anti-loop: maks 1x per kegagalan;
+              jika tak bisa diperbaiki → buka/komentari issue)
+
+malam hari (03:00 UTC) ──► universal-apk-test.yml (schedule)
+           └─ DEEP exploration + repair loop otonom pada APK rilisan dev-build
+
+manual ──► tests.yml (workflow_dispatch): full suite + E2E DEEP/STANDARD
 ```
 
-## Workflow 1: `Build Android APK` (`.github/workflows/build.yml`)
+## Workflow 1: `CI` (`.github/workflows/ci.yml`)
 
-Terpicu oleh: push ke `main`, pull request ke `main`, push tag `v*`
-(dibaca lewat kondisi job), dan manual `workflow_dispatch` (opsi
-`create_release`). Godot versi **4.4.1** (env `GODOT_VERSION`).
+Quality gate cepat (~4–6 menit), trigger **setiap push** (semua branch + tag,
+kecuali perubahan docs/prompt saja) dan PR ke main.
 
-### Job `build` — Export Android APK
+| Job | Isi |
+|---|---|
+| **Lint & format check** | `gdformat --check` + `gdlint` pada `scripts/ tools/ scenes/` (gdtoolkit dipin di `requirements-ci.txt` supaya hasil deterministik) |
+| **Unit, integration & gameplay tests** | `godot --headless` menjalankan 9 test scene; tiap scene wajib mencetak `ALL_TESTS_PASS`; error skrip apapun = gagal; log diunggah sebagai artifact saat gagal |
 
-1. **Checkout** + **Setup Java 17** (Temurin) — dibutuhkan Gradle.
-2. **Setup Android SDK**: terima lisensi, pasang `build-tools;34.0.0`,
-   `platforms;android-34`, `platform-tools` (sesuai targetSdk 34 preset "Android").
-3. **Cache Godot & template** (`actions/cache`): biner `/usr/local/bin/godot` +
-   `~/.local/share/godot/export_templates`. Cache miss → unduh editor & export
-   templates resmi 4.4.1-stable dari GitHub releases Godot.
-4. **Generate debug keystore** (`~/.android/debug.keystore`) agar Gradle bisa
-   menandatangani APK untuk pengujian.
-5. **Install Android build template**: unzip `android_source.zip` dari template
-   ke `android/build/` (direktori gradle_build pada `export_presets.cfg`).
-6. **Import aset**: `godot --headless --import --path "$PWD"`.
-7. **Export APK**: preset **"Android"** (gradle, minSdk 24 / targetSdk 34).
-   Bila gagal → `::warning::` lalu fallback ke preset **"Android-Quick"**
-   (prebuilt, tanpa gradle). Hasil: `build/Reablox.apk`.
-8. **Cek ukuran APK** maksimum **300 MB** (gagal bila lebih).
-9. **Upload artifact** `Reablox-Android` (retensi 14 hari, error bila APK tidak ada).
+Test scene (`tools/tests/`):
 
-### Job `dev-release` — Pre-release berkelanjutan
-
-- Syarat: hanya untuk **push ke `main`**.
-- Mengunduh artifact APK lalu **menghapus & membuat ulang** release
-  `dev-build` (pre-release, judul "Reablox Dev Build") dengan `gh release`.
-  Selalu ada satu APK dev terbaru yang bisa diunduh pemain.
-
-### Job `tag-release` — GitHub Release resmi
-
-- Syarat: push **tag `v*`** ATAU dispatch manual dengan input
-  `create_release = true`.
-- Membuat release dengan nama tag (mis. `v1.0.0`) + `--generate-notes`.
-- Bila dipicu manual (ref = `main`), nama tag otomatis `v<timestamp>-manual`.
-- Bila release sudah ada → upload APK ulang (`gh release upload --clobber`).
-
-## Workflow 2: `CI Auto-Fix` (`.github/workflows/autofix.yml`)
-
-- **Kapan jalan**: setiap workflow `Build Android APK` selesai dengan status
-  `failure` (via `workflow_run`), atau manual lewat `workflow_dispatch`.
-- Menjalankan `python tools/ci_autofix.py` dengan Python 3.11 dan
-  `gdtoolkit==4.*` (menyediakan `gdformat`).
-
-### Apa yang diperbaiki
-
-1. **`gdformat`** pada semua `**/*.gd` (menyeragamkan format kode GDScript).
-2. **`tools/sync_locales.py`**: memastikan setiap `Locale.t("key")` di kode
-   tersedia di `data/locales/en.json` & `id.json` (key baru otomatis ditambah).
-3. Bila ada perubahan → commit **`[autofix] perbaikan otomatis CI (format+locale)`**
-   dan push ke `main` (push baru otomatis memicu build ulang).
-
-### Guard anti-loop
-
-- Bila commit terakhir di `main` sudah diawali `[autofix]` → **tidak push**
-  (mencegah siklus build → autofix → build tanpa akhir).
-- Bila tidak ada perubahan → tidak commit, tidak push.
-
-### Issue otomatis
-
-- Bila auto-fix tidak bisa menyelesaikan (tidak ada perubahan / anti-loop
-  aktif), script membuat atau mengomentari issue berjudul
-  **"CI merah - perlu perbaikan manual"** berisi ekstrak baris error
-  (pola `Parse Error|SCRIPT ERROR|ERROR|error:`, maks 60 baris) + link ke run
-  yang gagal. Dedupe dilakukan lewat `gh issue list` berdasarkan judul persis,
-  jadi tidak menumpuk issue duplikat.
-- Script selalu exit 0 (kecuali error fatal kritis) agar workflow auto-fix
-  sendiri tidak ikut merah.
-
-## Cara membuat release
-
-**Cara 1 — tag (disarankan):**
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-Build jalan → `tag-release` membuat release `v1.0.0` + APK + release notes otomatis.
-
-**Cara 2 — manual dispatch:** tab *Actions* → *Build Android APK* → *Run
-workflow* → centang **create_release** → APK diunggah ke release
-`v<tanggal-jam>-manual`.
-
-**APK dev harian:** setiap push ke `main` memperbarui pre-release `dev-build`.
-
-## Catatan keamanan
-
-- Hanya memakai **`GITHUB_TOKEN` bawaan** (via `permissions: contents: write`
-  dan `issues: write`) — **tanpa PAT** dan **tanpa secret tambahan** di repo.
-- Keystore yang dipakai CI adalah **debug keystore yang dibuat ulang setiap
-  run** — hanya untuk pengujian internal, BUKAN untuk distribusi publik.
-- Untuk rilis publik nanti: simpan keystore release + password sebagai
-  **GitHub Actions secrets** (mis. `ANDROID_KEYSTORE_BASE64`,
-  `ANDROID_KEYSTORE_PASSWORD`) dan tanda tangani APK di job release;
-  jangan pernah commit keystore ke repo.
-
-## Tips mempercepat build
-
-- **Cache Godot & template**: biner editor (~100 MB) + export templates
-  (~1 GB) hanya diunduh saat versi berubah / cache tereduksi (key
-  `godot-4.4.1-linux-templates`).
-- **Concurrency `build-${{ github.ref }}`** dengan `cancel-in-progress: true`:
-  push beruntun ke branch yang sama membatalkan run lama yang masih jalan.
-- **Concurrency `autofix`** dengan `cancel-in-progress: false`: antrikan
-  auto-fix agar tidak saling menimpa commit.
-- APK artifact disimpan 14 hari — cukup untuk QA tanpa memenuhi storage.
-
-## Release split per ABI (v0.2.0+)
-
-Setiap build sekarang menghasilkan **4 APK** (artifact `Reablox-Android`,
-pre-release `dev-build`, dan GitHub Release bertag `v*`):
-
-| File | Arsitektur | Untuk |
+| Scene | Cek | Jumlah |
 |---|---|---|
-| `Reablox-arm64-v8a.apk` | 64-bit ARM | HP modern (disarankan, terkecil & tercepat) |
-| `Reablox-armeabi-v7a.apk` | 32-bit ARM | HP/laptop lama |
-| `Reablox-x86_64.apk` | 64-bit x86 | Emulator, ChromeOS |
-| `Reablox-universal.apk` | semua | Cadangan/kompatibilitas maksimum |
+| `test_unit_core` | parity locale id/en, fallback kunci, settings roundtrip + persistensi | 69 |
+| `test_unit_economy` | stats/achievements gameplay-only, restore state | 66 |
+| `test_unit_save` | roundtrip world, format legacy `rblox-world`, input korup, validasi path, export/import | 85 |
+| `test_unit_build` | block library, place/rotate/scale/remove, undo/redo, grid snap, limit, terrain, block coding, mini script | 212 |
+| `test_unit_world` | skema 10 template, config per mode, determinisme seed, konsumen (WorldManager/Game) | 391 |
+| `test_integration_gameplay` | fisika pemain (jatuh/lompat/gerak/sprint/void), state machine 10 mode (obby/racing/survival/tycoon/bedwars/hide&seek/adventure/horror/city/sandbox), NPC bot, kart (masuk/mengemudi/keluar) | 87 |
+| `test_policy_free` | **Guard anti-monetisasi**: scan token pembayaran/ads/subscription di seluruh source, kosmetik wajib gratis, permission Android bersih | 72 |
+| `tools/test_mm` + `tools/test_budget` | MultiMesh chunk renderer + polygon budget (legacy, marker disatukan) | — |
 
-Mekanisme: 3 preset ekspor tambahan (`Android-arm64`, `Android-armv7`,
-`Android-x86_64`) di `export_presets.cfg` — masing-masing hanya mengaktifkan
-satu arsitektur sehingga Gradle menghasilkan APK terpisah per ABI, ditambah
-preset universal. Semua preset memakai `min_sdk=24`, `target_sdk=34`,
-versionCode `2`, dan keystore debug yang diisi otomatis oleh CI via `sed`.
+## Workflow 2: `Android Build & E2E` (`.github/workflows/android-build.yml`)
 
-Rilis bertag: buat tag `v0.2.0` (`git tag v0.2.0 && git push origin v0.2.0`)
-→ workflow `tag-release` melampirkan keempat APK ke GitHub Release.
+Trigger: push ke `main`, push tag `v*`, manual dispatch. Concurrency
+`cancel-in-progress` supaya push baru membatalkan build lama (hemat waktu).
 
-## Pratinjau screenshot tanpa install (mode demo)
+1. **quality-gate** — ulang lint + seluruh test scene (build TIDAK jalan sebelum hijau).
+2. **build** — Java 17 + Android SDK 34 + Godot 4.4.1 (editor & template di-cache,
+   Gradle di-cache) → decode keystore rilis dari `SIGNING_KEYSTORE_BASE64` →
+   `versionCode = run_number` (monotonik, dev-build selalu bisa upgrade) →
+   export `Android` (gradle) + 3 preset ABI → **`apksigner verify --print-certs`**
+   (APK bertanda debug cert = gagal; tag tanpa secrets = gagal) → cek ≤300 MB →
+   artifact `Reablox-Android` → keystore didelete dari runner.
+3. **screenshots** — render 5 pratinjau 1080p via `--screenshot-demo` (Xvfb + Mesa).
+4. **e2e-test** — reusable `universal-apk-test.yml` (mode SMOKE untuk push main,
+   STANDARD untuk tag): APK di-install di emulator, diluncurkan, dicek crash,
+   dijelajahi otonom, screenshot dilampirkan.
+5. **dev-release** (hanya push main) — upsert pre-release `dev-build`.
 
-Engine dapat dirender tanpa APK untuk dokumentasi/QA:
+Fallback signing: bila Secrets kosong DAN bukan tag → pakai debug keystore
+(dengan warning besar). Rilis stabil (tag) **wajib** keystore rilis.
+
+## Workflow 3: `Release` (`.github/workflows/release.yml`)
+
+- **Otomatis**: setelah *Android Build & E2E* sukses untuk tag `v*` → ambil artifact
+  dari run tersebut → verifikasi ulang signature → `gh release create v*` + upload APK.
+- **Manual** (`workflow_dispatch`): pilih `from_run_id` (build main sukses terakhir)
+  dan `tag` → terbitkan rilis dari build itu.
+
+## Workflow 4: `Extended Tests` (`.github/workflows/tests.yml`)
+
+Manual dispatch (pilih mode SMOKE/STANDARD/DEEP/RELEASE, sumber APK, autofix
+loop) + full headless suite ulang. Eksplorasi DEEP malam hari sudah ditangani
+`universal-apk-test.yml` (schedule 03:00 UTC) lengkap dengan repair loop otonom.
+
+## Workflow 5: `CI Auto-Fix` (`.github/workflows/autofix.yml`)
+
+Trigger `workflow_run` saat **CI** atau **Android Build & E2E** gagal:
+`tools/ci_autofix.py` mengambil log kegagalan → `gdformat` + `sync_locales.py` →
+commit `[autofix] …` → push (anti-loop: skip bila commit terakhir sudah `[autofix]`;
+maks 1 percobaan per kegagalan). Bila tidak ada yang bisa diperbaiki otomatis,
+script membuat/mengomentari issue berisi ekstrak error + link run.
+
+## Signing & Keamanan
+
+| Secret | Isi |
+|---|---|
+| `SIGNING_KEYSTORE_BASE64` | Keystore rilis (base64) — asal `key-sign-apk.zip` |
+| `KEYSTORE_PASSWORD` | Password keystore |
+| `KEY_PASSWORD` | Password key |
+| `KEY_ALIAS` | Alias key (`reablox`) |
+| `SIGNING_ZIP_PASSWORD` | Password arsip `key-sign-apk.zip` |
+
+Aturan: keystore hanya hidup di runner sementara (dihapus setelah build), tidak
+pernah dicetak di log, tidak pernah di-commit. `apksigner verify` memastikan APK
+rilis tidak bertanda debug keystore. Fingerprint SHA-256 sertifikat rilis
+terdokumentasi di `README-SIGNING.txt` di dalam `key-sign-apk.zip`.
+
+## Hemat waktu build
+
+- Cache Godot editor + export templates + Gradle (hit berikutnya ±2–3 menit lebih cepat).
+- `concurrency` + `cancel-in-progress` — push baru membatalkan run lama yang sama.
+- `paths-ignore` docs/markdown/prompts — tidak memicu build sama sekali.
+- Quality gate ringan (tanpa Android SDK) memberi sinyal merah cepat ±4 menit.
+- E2E memakai artifact build yang sama (tanpa rebuild).
+
+## Reproduksi lokal (opsional, tanpa APK)
 
 ```bash
-Xvfb :99 -screen 0 1920x1080x24 -nolisten tcp &
-sleep 2
-DISPLAY=:99 godot --path . --resolution 1920x1080 \
-  --rendering-method gl_compatibility --rendering-driver opengl3 \
-  --audio-driver Dummy -- --screenshot-demo --shot-dir=/abs/path
+pip install -r requirements-ci.txt
+gdformat --check scripts/ tools/ scenes/ && gdlint scripts/ tools/
+godot --headless --import --path .
+for t in tools/tests/test_*.tscn; do godot --headless "res://$t"; done
 ```
-
-Menghasilkan 5 tangkapan 1080p: `rblox-menu.png` (menu utama),
-`rblox-gameplay.png` (kota aerial sinematik), `rblox-build.png` (mode build
-dengan lengkung pelangi + HUD), `rblox-obby.png` (spiral platform senja),
-dan `rblox-avatar.png` (editor avatar). Kualitas tangkapan dijaga khusus
-untuk rasterizer software (llvmpipe): bayangan dimatikan (bebas shadow
-acne), gedung kaca dibuat solid (alpha blend pada wajah miring menghasilkan
-arsir dither), air hanya muncul pada terrain yang di-sculpt (plane air y=1
-dulu "membanjiri" dunia flat), tanah kota satu box tanpa sambungan antar
-tile, dan jalan berupa box tebal ber-atap 0.1u (curb yang bisa dilangkahi).
-
-Hasil render dipakai untuk galeri README (`docs/screenshots/`, nama file
-dipertahankan apa adanya). Workflow CI juga menjalankan job `screenshots`
-paralel yang mengunggah kelima PNG sebagai artifact `Reablox-Screenshots`
-pada setiap push main. Catatan: `xvfb-run` butuh `xauth` yang mungkin tak
-tersedia; pakai `Xvfb` langsung seperti di atas.
-
-## Auto-run APK rilisan di emulator (job `smoke-test`)
-
-Setiap push main (dev pre-release `dev-build`) dan tag `v*`, job `smoke-test`
-menguji **APK hasil release yang sudah terbit** — bukan artifact mentah build:
-
-1. `gh release download` APK `Reablox-x86_64.apk` (fallback `Reablox-universal.apk`)
-   dari tag rilisan yang diuji (`dev-build` atau tag `v*`).
-2. Android emulator (API 34, google_apis, x86_64, KVM, Pixel 5) dinyalakan
-   headless (`-no-window -gpu swiftshader_indirect`).
-3. `ci/emulator_smoke.sh`: `adb install` → launch via monkey → tunggu aktivitas
-   game jadi ResumedActivity → tunggu log `Godot Engine v...` → cek crash-buffer
-   logcat paket `com.secretarrow.rblox` → screenshot → tap layar → screenshot →
-   pastikan proses masih hidup. Lulus = `EMULATOR_SMOKE_PASS`.
-4. Screenshot `emulator-1.png` / `emulator-2.png` diunggah sebagai artifact
-   `Reablox-Emulator-Smoke` **dan dilampirkan ke release** (`--clobber`) sehingga
-   bisa dilihat tanpa install.
-
-Catatan teknis: renderer project adalah `mobile` (Vulkan). Emulator CI tanpa
-GPU host hanya mampu menginisialisasi Vulkan SwiftShader yang merender hitam
-senyap di Godot 4; jalur GL emugl gagal inisialisasi, dan mematikan Vulkan di
-emulator (`-feature -Vulkan`) membuat aplikasi berhenti. Karena itu kegagalan
-render TIDAK menggagalkan smoke test — yang diverifikasi adalah siklus hidup
-proses (install, launch, init engine, tanpa crash, input sentuh hidup).
-Screenshot emulator hanya dilampirkan ke release bila memiliki konten visual
-(>16 warna); bukti visual render asli tetap disediakan job `screenshots`
-(render GL asli 1080p). Job ini dilewati untuk event pull_request dan tetap
-hijau saat salah satu job rilisan di-skip
-(kondisi `!contains(needs.*.result, 'failure')`).
