@@ -1,0 +1,2 @@
+# Pin tooling CI agar hasil lint/format deterministik antar runner & lokal.
+gdtoolkit==4.5.0

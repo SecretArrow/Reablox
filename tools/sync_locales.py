@@ -17,7 +17,12 @@ PATTERN = re.compile(r'Locale\.t\(\s*"([a-z0-9_]+)"')
 def scan_keys() -> set:
 	keys = set()
 	for gd in ROOT.rglob("*.gd"):
-		if ".godot" in str(gd):
+		gs = str(gd)
+		if ".godot" in gs or "/tools/tests/" in gs or "\\tools\\tests\\" in gs:
+			# File test memakai key probe (zz_*) yang TIDAK boleh ikut
+			# tersinkron ke locale produksi.
+			continue
+		if "zz_" in gs:
 			continue
 		try:
 			text = gd.read_text(encoding="utf-8")

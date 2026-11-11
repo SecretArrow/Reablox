@@ -38,7 +38,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install gdtoolkit (gdformat)
-        run: pip install "gdtoolkit==4.*"
+        run: pip install -r requirements-ci.txt
 
       - name: Run auto-fix script
         env:
