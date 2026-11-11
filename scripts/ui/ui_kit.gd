@@ -1,25 +1,34 @@
 extends RefCounted
 ## UiKit — helper statis untuk membangun widget UI secara programatik.
-## Dirancang untuk layar sentuh: target sentuh minimal 48px, tinggi tombol >= 56.
-## Semua StyleBoxFlat memakai sudut membulat 12 dengan state normal/hover/pressed.
+## v0.4 "Modern pass": tombol modern dengan highlight atas (kesan glossy),
+## radius besar, hover-lift, kartu dengan thumbnail, badge, icon button bulat,
+## gradien multi-stop, dan toast glass — gaya platform game modern.
 
 # ------------------------------------------------------------ palet warna --
 # EN: dark palette
-const COL_BG_DARK := Color("#141824")
-const COL_PANEL_DARK := Color("#1e2433")
-const COL_TEXT_DARK := Color("#eef1f8")
-const COL_ACCENT := Color("#4f8cff")
-const COL_ACCENT2 := Color("#5ad48a")
+const COL_BG_DARK := Color("#11151f")
+const COL_PANEL_DARK := Color("#1a2130")
+const COL_TEXT_DARK := Color("#f0f3fa")
+const COL_ACCENT := Color("#3d6df2")
+const COL_ACCENT2 := Color("#00b26b")
 # EN: light palette
-const COL_BG_LIGHT := Color("#f4f6fb")
+const COL_BG_LIGHT := Color("#f2f5fb")
 const COL_PANEL_LIGHT := Color("#ffffff")
 const COL_TEXT_LIGHT := Color("#1a2233")
 const COL_ACCENT_LIGHT := Color("#2f6fed")
-const COL_ACCENT2_LIGHT := Color("#2f9e5f")
+const COL_ACCENT2_LIGHT := Color("#00a05f")
+# EN: shared accents for modern look
+const COL_PLAY := Color("#00b06f")
+const COL_WARN := Color("#ff9d2e")
+const COL_DANGER := Color("#ef5350")
+const COL_GOLD := Color("#ffc107")
 
-const CORNER := 12
+const CORNER := 16
+const CORNER_XL := 22
 const BTN_MIN_HEIGHT := 56.0
 const TOUCH_MIN := 48.0
+
+# ------------------------------------------------------------------ tombol
 
 
 static func make_button(
@@ -33,35 +42,119 @@ static func make_button(
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
 	var base := COL_ACCENT if accent else COL_ACCENT2
-	var sb := _button_3d(base)
+	_apply_modern_button(b, base)
+	return b
+
+
+## Tombol dengan warna kustom (mis. hijau "Main", merah "Keluar").
+static func make_button_color(
+	text: String, base: Color, min_size: Vector2 = Vector2(160, 56)
+) -> Button:
+	var b := Button.new()
+	var sz := min_size
+	if sz.y < BTN_MIN_HEIGHT:
+		sz.y = BTN_MIN_HEIGHT
+	b.custom_minimum_size = sz
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	_apply_modern_button(b, base)
+	return b
+
+
+## Tombol sekunder: latar gelap semi-transparan + border halus (tidak "berteriak").
+static func make_button_secondary(text: String, min_size: Vector2 = Vector2(160, 56)) -> Button:
+	var b := Button.new()
+	var sz := min_size
+	if sz.y < BTN_MIN_HEIGHT:
+		sz.y = BTN_MIN_HEIGHT
+	b.custom_minimum_size = sz
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	var base := Color(1, 1, 1, 0.10)
+	var sb := _button_modern_sb(base)
+	sb.border_width_all = 1
+	sb.border_color = Color(1, 1, 1, 0.22)
 	b.add_theme_stylebox_override("normal", sb)
-	b.add_theme_stylebox_override("hover", _button_3d(base.lightened(0.12)))
-	b.add_theme_stylebox_override("pressed", _button_3d(base.darkened(0.22), true))
-	b.add_theme_stylebox_override("disabled", _button_3d(Color(0.45, 0.48, 0.56, 0.5)))
+	var sbh := _button_modern_sb(Color(1, 1, 1, 0.17))
+	sbh.border_width_all = 1
+	sbh.border_color = Color(1, 1, 1, 0.32)
+	b.add_theme_stylebox_override("hover", sbh)
+	var sbp := _button_modern_sb(Color(1, 1, 1, 0.06), true)
+	sbp.border_width_all = 1
+	sbp.border_color = Color(1, 1, 1, 0.15)
+	b.add_theme_stylebox_override("pressed", sbp)
+	b.add_theme_stylebox_override("disabled", _button_modern_sb(Color(0.45, 0.48, 0.56, 0.4)))
 	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	b.add_theme_color_override("font_color", Color.WHITE)
-	b.add_theme_color_override("font_hover_color", Color.WHITE)
-	b.add_theme_color_override("font_pressed_color", Color(0.94, 0.96, 1.0))
-	b.add_theme_color_override("font_focus_color", Color.WHITE)
-	b.add_theme_color_override("font_disabled_color", Color(1.0, 1.0, 1.0, 0.5))
+	for st in ["font_color", "font_hover_color", "font_focus_color"]:
+		b.add_theme_color_override(st, Color.WHITE)
+	b.add_theme_color_override("font_pressed_color", Color(0.92, 0.94, 1.0))
+	b.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.5))
 	b.add_theme_font_size_override("font_size", 20)
 	attach_press_animation(b)
 	return b
 
 
-## StyleBox tombol chunky ala game: border bawah gelap (3D) + bayangan.
-static func _button_3d(base: Color, pressed: bool = false) -> StyleBoxFlat:
+## Tombol bulat besar untuk HUD/kontrol sentuh; glyph digambar via label teks.
+static func make_icon_button(
+	label_text: String, diameter: float = 64.0, base := COL_ACCENT
+) -> Button:
+	var b := Button.new()
+	b.text = label_text
+	b.custom_minimum_size = Vector2(diameter, diameter)
+	b.focus_mode = Control.FOCUS_NONE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(base.r, base.g, base.b, 0.92)
+	sb.set_corner_radius_all(int(diameter * 0.5))
+	sb.border_width_top = 2
+	sb.border_color = Color(1, 1, 1, 0.35)
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	sb.shadow_size = 8
+	sb.shadow_offset = Vector2(0, 3)
+	b.add_theme_stylebox_override("normal", sb)
+	var sbh: StyleBoxFlat = sb.duplicate()
+	sbh.bg_color = Color(
+		base.lightened(0.12).r, base.lightened(0.12).g, base.lightened(0.12).b, 0.95
+	)
+	b.add_theme_stylebox_override("hover", sbh)
+	var sbp: StyleBoxFlat = sb.duplicate()
+	sbp.bg_color = base.darkened(0.18)
+	b.add_theme_stylebox_override("pressed", sbp)
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(st, Color.WHITE)
+	b.add_theme_font_size_override("font_size", int(diameter * 0.30))
+	attach_press_animation(b)
+	return b
+
+
+static func _apply_modern_button(b: Button, base: Color) -> void:
+	b.add_theme_stylebox_override("normal", _button_modern_sb(base))
+	b.add_theme_stylebox_override("hover", _button_modern_sb(base.lightened(0.13)))
+	b.add_theme_stylebox_override("pressed", _button_modern_sb(base.darkened(0.20), true))
+	b.add_theme_stylebox_override("disabled", _button_modern_sb(Color(0.45, 0.48, 0.56, 0.5)))
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	for st in ["font_color", "font_hover_color", "font_focus_color"]:
+		b.add_theme_color_override(st, Color.WHITE)
+	b.add_theme_color_override("font_pressed_color", Color(0.94, 0.96, 1.0))
+	b.add_theme_color_override("font_disabled_color", Color(1, 1, 1, 0.5))
+	b.add_theme_font_size_override("font_size", 20)
+	attach_press_animation(b)
+
+
+## StyleBox tombol modern: highlight atas (glossy), bayangan lembut, radius besar.
+static func _button_modern_sb(base: Color, pressed: bool = false) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = base
 	sb.set_corner_radius_all(CORNER)
-	sb.content_margin_left = 22.0
-	sb.content_margin_right = 22.0
-	sb.content_margin_top = (14.0 if not pressed else 17.0)
-	sb.content_margin_bottom = (18.0 if not pressed else 12.0)
-	sb.border_width_bottom = (0 if pressed else 4)
-	sb.border_color = base.darkened(0.35)
-	sb.shadow_color = Color(0, 0, 0, 0.28)
-	sb.shadow_size = 6
+	sb.content_margin_left = 24.0
+	sb.content_margin_right = 24.0
+	sb.content_margin_top = (14.0 if not pressed else 16.0)
+	sb.content_margin_bottom = (16.0 if not pressed else 12.0)
+	# Highlight atas: kesan cahaya glossy ala platform game modern.
+	sb.border_width_top = 2
+	sb.border_color = Color(1, 1, 1, 0.30)
+	sb.shadow_color = Color(0, 0, 0, 0.30)
+	sb.shadow_size = 7
 	sb.shadow_offset = Vector2(0, 3)
 	return sb
 
@@ -85,6 +178,9 @@ static func attach_press_animation(b: Button) -> void:
 	)
 
 
+# ------------------------------------------------------------------ teks
+
+
 static func make_label(text: String, font_size: int = 18) -> Label:
 	var l := Label.new()
 	l.text = text
@@ -94,15 +190,37 @@ static func make_label(text: String, font_size: int = 18) -> Label:
 
 
 static func make_title(text: String) -> Label:
-	var l := make_label(text, 52)
+	var l := make_label(text, 54)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.add_theme_color_override("font_color", Color.WHITE)
 	l.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.45))
 	l.add_theme_constant_override("shadow_offset_x", 2)
 	l.add_theme_constant_override("shadow_offset_y", 4)
-	l.add_theme_color_override("font_outline_color", Color(0.12, 0.16, 0.28, 0.85))
-	l.add_theme_constant_override("outline_size", 6)
+	l.add_theme_color_override("font_outline_color", Color(0.10, 0.13, 0.24, 0.9))
+	l.add_theme_constant_override("outline_size", 8)
 	return l
+
+
+## Header seksi: label tebal besar dengan titik aksen berwarna di depannya.
+static func make_section_header(text: String, accent := COL_ACCENT) -> HBoxContainer:
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 10)
+	hb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var dot := ColorRect.new()
+	dot.color = accent
+	dot.custom_minimum_size = Vector2(8, 24)
+	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Titik aksen kapsul.
+	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hb.add_child(dot)
+	var l := make_label(text, 26)
+	l.add_theme_color_override("font_color", Color.WHITE)
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hb.add_child(l)
+	return hb
+
+
+# ------------------------------------------------------------------ kontainer
 
 
 ## Kartu elevated: panel membulat dengan bayangan lembut (kesan kedalaman).
@@ -130,6 +248,8 @@ static func make_chip(text: String, bg: Color = Color(0, 0, 0, 0.45)) -> PanelCo
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.set_corner_radius_all(18)
+	sb.set_border_width_all(1)
+	sb.border_color = Color(1, 1, 1, 0.16)
 	sb.content_margin_left = 14.0
 	sb.content_margin_right = 14.0
 	sb.content_margin_top = 5.0
@@ -139,7 +259,30 @@ static func make_chip(text: String, bg: Color = Color(0, 0, 0, 0.45)) -> PanelCo
 	var lbl := Label.new()
 	lbl.text = text
 	lbl.add_theme_font_size_override("font_size", 14)
-	lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.92))
+	lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.95))
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(lbl)
+	return p
+
+
+## Badge notifikasi ala platform modern: kapsul warna penuh + teks putih tebal.
+static func make_badge(text: String, bg: Color) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.set_corner_radius_all(12)
+	sb.content_margin_left = 10.0
+	sb.content_margin_right = 10.0
+	sb.content_margin_top = 3.0
+	sb.content_margin_bottom = 3.0
+	p.add_theme_stylebox_override("panel", sb)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.custom_minimum_size = Vector2(0, 24)
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", 13)
+	lbl.add_theme_color_override("font_color", Color.WHITE)
+	lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.3))
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(lbl)
 	return p
@@ -154,6 +297,32 @@ static func make_gradient_bg(top: Color, bottom: Color) -> TextureRect:
 	gt.gradient = g
 	gt.fill_from = Vector2(0, 0)
 	gt.fill_to = Vector2(0, 1)
+	gt.width = 64
+	gt.height = 64
+	var tr := TextureRect.new()
+	tr.texture = gt
+	tr.stretch_mode = TextureRect.STRETCH_SCALE
+	tr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return tr
+
+
+## Gradien kaya multi-stop diagonal (3-4 warna) untuk hero / panel besar.
+static func make_rich_gradient(colors: Array) -> TextureRect:
+	var g := Gradient.new()
+	var cols := PackedColorArray()
+	for c in colors:
+		cols.append(c if c is Color else Color(String(c)))
+	g.colors = cols
+	var n := cols.size()
+	var offs := PackedFloat32Array()
+	for i in n:
+		offs.append(float(i) / float(n - 1))
+	g.offsets = offs
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(1, 1)
 	gt.width = 64
 	gt.height = 64
 	var tr := TextureRect.new()
@@ -222,6 +391,21 @@ static func make_panel(bg: Color = Color(0, 0, 0, 0)) -> PanelContainer:
 	var p := PanelContainer.new()
 	if bg.a > 0.0:
 		p.add_theme_stylebox_override("panel", _flat(bg, CORNER, 16.0, 14.0))
+	return p
+
+
+## Panel glass semi-transparan ala HUD modern: blur look + border terang.
+static func make_glass_panel(alpha: float = 0.55, radius: int = CORNER) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.055, 0.07, 0.12, alpha)
+	sb.set_corner_radius_all(radius)
+	sb.set_border_width_all(1)
+	sb.border_color = Color(1, 1, 1, 0.14)
+	sb.shadow_color = Color(0, 0, 0, 0.25)
+	sb.shadow_size = 10
+	sb.shadow_offset = Vector2(0, 3)
+	p.add_theme_stylebox_override("panel", sb)
 	return p
 
 
@@ -303,9 +487,13 @@ static func show_toast(layer: Control, text: String, duration: float = 2.6) -> v
 	if stack == null:
 		return
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override(
-		"panel", _flat(Color(0.07, 0.09, 0.14, 0.94), CORNER, 20.0, 12.0)
-	)
+	var sb := _flat(Color(0.07, 0.09, 0.14, 0.94), 22, 22.0, 12.0)
+	sb.set_border_width_all(1)
+	sb.border_color = Color(1, 1, 1, 0.16)
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	sb.shadow_size = 12
+	sb.shadow_offset = Vector2(0, 4)
+	panel.add_theme_stylebox_override("panel", sb)
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var lbl := Label.new()
@@ -316,9 +504,15 @@ static func show_toast(layer: Control, text: String, duration: float = 2.6) -> v
 	panel.add_child(lbl)
 	stack.add_child(panel)
 	panel.modulate.a = 0.0
+	panel.scale = Vector2(0.92, 0.92)
+	panel.pivot_offset = Vector2(80.0, 20.0)
 	var tw := panel.create_tween()
+	tw.set_parallel(true)
 	tw.tween_property(panel, "modulate:a", 1.0, 0.18)
-	tw.tween_interval(duration)
+	tw.tween_property(panel, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(
+		Tween.EASE_OUT
+	)
+	tw.chain().tween_interval(duration)
 	tw.tween_property(panel, "modulate:a", 0.0, 0.35)
 	tw.tween_callback(panel.queue_free)
 

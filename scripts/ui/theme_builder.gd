@@ -5,8 +5,8 @@ extends RefCounted
 ## palet kontras tinggi ala platform game modern (Roblox-like).
 ## Dipakai otomatis oleh Settings.get_theme(); tidak perlu dipanggil manual.
 
-const CORNER := 14
-const CORNER_SM := 10
+const CORNER := 16
+const CORNER_SM := 12
 const FONT_DEFAULT := 20
 const FONT_SMALL := 16
 
@@ -24,13 +24,13 @@ static func bold_font() -> FontVariation:
 
 
 static func build(dark: bool) -> Theme:
-	var bg := Color("#0e1220") if dark else Color("#eef1f8")
-	var panel := Color("#1a2130") if dark else Color("#ffffff")
+	var bg := Color("#10141f") if dark else Color("#f2f5fb")
+	var panel := Color("#171d2c") if dark else Color("#ffffff")
 	var text := Color("#f0f3fa") if dark else Color("#1a2233")
 	var subtext := Color("#a8b1c7") if dark else Color("#5a6478")
-	var accent := Color("#4f8cff") if dark else Color("#2f6fed")
-	var accent2 := Color("#4ad48a") if dark else Color("#2f9e5f")
-	var field := Color("#242c40") if dark else Color("#e6ebf5")
+	var accent := Color("#3d6df2") if dark else Color("#2f6fed")
+	var accent2 := Color("#00b26b") if dark else Color("#00a05f")
+	var field := Color("#222a3d") if dark else Color("#e6ebf5")
 	var t := Theme.new()
 	t.default_font_size = FONT_DEFAULT
 	_style_button(t, accent, accent2)
@@ -66,14 +66,16 @@ static func _button_sb(base: Color, bottom: float, lift: bool) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = base
 	sb.set_corner_radius_all(CORNER)
-	sb.content_margin_left = 22.0
-	sb.content_margin_right = 22.0
+	sb.content_margin_left = 24.0
+	sb.content_margin_right = 24.0
 	sb.content_margin_top = (14.0 if not lift else 17.0)
 	sb.content_margin_bottom = ((14.0 + bottom) if not lift else 12.0)
+	# Kombinasi bawah gelap (3D) + atas terang (glossy) = tombol "modern game".
 	sb.border_width_bottom = int(bottom)
-	sb.border_color = base.darkened(0.35)
-	sb.shadow_color = Color(0, 0, 0, 0.28)
-	sb.shadow_size = 6
+	sb.border_width_top = 2
+	sb.border_color = Color(1, 1, 1, 0.30)
+	sb.shadow_color = Color(0, 0, 0, 0.30)
+	sb.shadow_size = 7
 	sb.shadow_offset = Vector2(0, 3)
 	return sb
 
@@ -110,9 +112,9 @@ static func _glass(bg: Color, radius: int) -> StyleBoxFlat:
 	sb.bg_color = bg
 	sb.set_corner_radius_all(radius)
 	sb.set_border_width_all(1)
-	sb.border_color = Color(1, 1, 1, 0.08)
-	sb.shadow_color = Color(0, 0, 0, 0.22)
-	sb.shadow_size = 10
+	sb.border_color = Color(1, 1, 1, 0.12)
+	sb.shadow_color = Color(0, 0, 0, 0.24)
+	sb.shadow_size = 12
 	sb.shadow_offset = Vector2(0, 4)
 	sb.content_margin_left = 16.0
 	sb.content_margin_right = 16.0
