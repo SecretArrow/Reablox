@@ -68,7 +68,9 @@ func _ready() -> void:
 	_arg_edit.custom_minimum_size = Vector2(0, 48)
 	_arg_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_arg_row.add_child(_arg_edit)
-	_arg_row.add_child(UiKit.make_button(Locale.t("common_ok"), Vector2(96, 48), true))
+	var ok_btn := UiKit.make_button(Locale.t("common_ok"), Vector2(96, 48), true)
+	ok_btn.pressed.connect(_on_arg_ok)
+	_arg_row.add_child(ok_btn)
 	_list = ItemList.new()
 	_list.custom_minimum_size = Vector2(0, 150)
 	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL

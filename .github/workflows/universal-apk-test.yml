@@ -367,7 +367,7 @@ jobs:
         if: >-
           ${{ (inputs.push_fixes == true || github.event_name == 'schedule') }}
         run: |
-          git config user.name "rblox-autofix[bot]"
+          git config user.name "reablox-autofix[bot]"
           git config user.email "autofix@users.noreply.github.com"
           git add -A -- ':!apk' ':!artifacts-api*' ':!tools/apk-tester/artifacts*'
           if git diff --cached --quiet; then

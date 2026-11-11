@@ -1,6 +1,8 @@
 extends Node
 ## Autoload: Saves — manajemen file world (.myworld), ekspor/impor, screenshot.
-## Format .myworld = JSON teks: {"format":"rblox-world","version":1,"meta":{...},"settings":{...},"blocks":[...],"props":[...],"terrain":{...}}
+## Format .myworld = JSON teks:
+## {"format":"reablox-world","version":1,"meta":{...},"settings":{...},
+## "blocks":[...],"props":[...],"terrain":{...}}
 
 const WORLDS_DIR := "user://worlds"
 const EXPORTS_DIR := "user://exports"
@@ -64,13 +66,15 @@ func load_world(path: String) -> Dictionary:
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return {}
 	var data: Dictionary = parsed
-	if String(data.get("format", "")) != "rblox-world":
+	var fmt := String(data.get("format", ""))
+	if fmt != "reablox-world" and fmt != "rblox-world":
 		return {}
 	return data
 
 
 func delete_world(path: String) -> Error:
-	if not String(path).begins_with(WORLDS_DIR):
+	# "/": tanpa pemisah, "user://worlds_evil/..." lolos begins_with(WORLDS_DIR).
+	if not String(path).begins_with(WORLDS_DIR + "/"):
 		return ERR_INVALID_PARAMETER
 	return DirAccess.remove_absolute(path)
 

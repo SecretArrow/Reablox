@@ -283,7 +283,7 @@ func _open_import_dialog() -> void:
 		_file_dialog = FileDialog.new()
 		_file_dialog.access = FileDialog.ACCESS_FILESYSTEM
 		_file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
-		_file_dialog.filters = PackedStringArray(["*.myworld ; RBlox World"])
+		_file_dialog.filters = PackedStringArray(["*.myworld ; Reablox World"])
 		_file_dialog.file_selected.connect(_on_import_selected)
 		add_child(_file_dialog)
 	_file_dialog.popup_centered(Vector2i(900, 560))

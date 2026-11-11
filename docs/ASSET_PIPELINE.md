@@ -3,11 +3,11 @@
 Panduan menyusun ekosistem aset (karakter, rumah/bangunan modular, prop/tools)
 dengan estetika Roblox Modern: geometri modular chunky, beveled edges, tekstur
 stylized bersih, low-poly. Pipeline dirancang untuk otomasi penuh lewat
-**GLM + MCP** dan terintegrasi dengan sistem RBlox yang sudah ada
+**GLM + MCP** dan terintegrasi dengan sistem Reablox yang sudah ada
 (MMChunks, PolyBudget, build grid).
 
 ```
-Meshy / Tripo3D / CSM        Blender headless                Godot 4.4 (RBlox)
+Meshy / Tripo3D / CSM        Blender headless                Godot 4.4 (Reablox)
 ┌───────────────────┐   ┌──────────────────────────┐   ┌─────────────────────┐
 │ prompts/3d_asset_ │   │ tools/blender/           │   │ assets/meshes/...   │
 │ prompts.md        │──▶│ rbx_pipeline.py          │──▶│ import .glb         │
@@ -70,7 +70,7 @@ diprioritaskan untuk prop/kit-piece AI dan aksesoris avatar.
 
 ## 4. Snap-to-Grid Modular System
 
-Grid dasar RBlox = 1 unit blok; kit-piece modular memakai footprint **4 unit**;
+Grid dasar Reablox = 1 unit blok; kit-piece modular memakai footprint **4 unit**;
 snap prop = 0.5 unit. Pipeline Blender sudah menjamin pivot dasar-tengah
 (`step_origin_grid`), sehingga di engine cukup:
 
@@ -93,7 +93,7 @@ Aturan kit modular (agar semua piece sambung mulus):
    corner; atap menutupi toleransi via overhang lip.
 3. Rotasi hanya 0/90/180/270; tidak ada skala non-seragam.
 4. Pratinjau penempatan (ghost) memakai material transparan sebelum klik
-   place — pola yang sama dengan build tool RBlox.
+   place — pola yang sama dengan build tool Reablox.
 
 ## 5. Lighting & AO — Setting Dunia Roblox-like
 

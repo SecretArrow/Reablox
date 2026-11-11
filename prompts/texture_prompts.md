@@ -116,6 +116,6 @@ logo, jpeg artifacts, noise, high frequency detail, 3d render
 7. Validasi di Blender dengan material preview + cek budget:
    **tekstur tidak menambah triangle** — ini inti tip #1 `docs/PERFORMANCE.md`.
 
-> Catatan RBlox: dunia blok memakai vertex color (tanpa tekstur) untuk hemat
+> Catatan Reablox: dunia blok memakai vertex color (tanpa tekstur) untuk hemat
 > memori & draw call. Tekstur PBR ini diprioritaskan untuk **props/kit-piece
 > hasil AI** dan aksesoris avatar; jangan pakai tekstur pada blok dasar.

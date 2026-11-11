@@ -11,7 +11,7 @@
 # adalah siklus hidup proses: install, launch, init engine, tanpa crash, input hidup.
 set -euo pipefail
 
-PKG="com.secretarrow.rblox"
+PKG="com.secretarrow.reablox"
 APK_DIR="${APK_DIR:-apk}"
 SHOT_OK=0
 
@@ -45,7 +45,7 @@ adb devices -l
 echo "Android: $(adb shell getprop ro.build.version.release | tr -d '\r') (SDK $(adb shell getprop ro.build.version.sdk | tr -d '\r'))"
 
 APK=""
-for k in RBlox-x86_64.apk RBlox-universal.apk; do
+for k in Reablox-x86_64.apk Reablox-universal.apk; do
   if [ -f "$APK_DIR/$k" ]; then APK="$APK_DIR/$k"; break; fi
 done
 if [ -z "$APK" ]; then

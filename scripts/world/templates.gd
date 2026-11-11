@@ -1,8 +1,9 @@
 extends RefCounted
-## Katalog 10 template dunia & generator world JSON (skema "rblox-world").
+## Katalog 10 template dunia & generator world JSON (skema "reablox-world",
+## kompatibel dengan format lama "rblox-world").
 ## Dipakai world_select (kartu template) dan game (pending world_id / fallback).
 ## Skema kontrak Task 1:
-## {"format":"rblox-world","version":1,"meta":{name,is_template},
+## {"format":"reablox-world","version":1,"meta":{name,is_template},
 ##  "settings":{game_mode,day_night,cycle_minutes,weather,health_enabled,
 ##   build_allowed,spawn},"spawn_points":[[x,y,z]],
 ##  "blocks":[{id,shape,pos,size,color,mat,anchored,script}],
@@ -70,7 +71,7 @@ static func build_world_json(id: String) -> Dictionary:
 	if not known:
 		wid = "empty"
 	var w := {
-		"format": "rblox-world",
+		"format": "reablox-world",
 		"version": VERSION,
 		"meta": {"name": _display_name(wid), "is_template": true},
 		"settings":

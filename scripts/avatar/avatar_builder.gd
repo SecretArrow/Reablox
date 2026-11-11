@@ -1,5 +1,5 @@
 extends Node3D
-## AvatarBuilder — rig avatar blocky (Roblox-like) untuk RBlox.
+## AvatarBuilder — rig avatar blocky (Roblox-like) untuk Reablox.
 ## var rig: Node3D = AvatarBuilder.build(GameState.avatar_config) lalu add_child.
 ## rig.animate(delta, speed, grounded) dipanggil pemilik node (player/game).
 ## apply_item(rig, item) / clear_slot(rig, slot) untuk kosmetik. Rig menghadap +Z.

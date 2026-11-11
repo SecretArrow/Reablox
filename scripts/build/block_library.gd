@@ -1,5 +1,5 @@
 extends RefCounted
-## BlockLibrary — katalog statis bentuk, material & warna blok RBlox.
+## BlockLibrary — katalog statis bentuk, material & warna blok Reablox.
 ## Pemakaian: const BlockLibrary := preload("res://scripts/build/block_library.gd")
 ## Shape: box/sphere/cylinder/wedge. Material: plastic/metal/wood/glass/neon.
 ## Semua mesh dibuat di pusat (0,0,0) dengan ukuran (size) penuh.
@@ -47,7 +47,7 @@ static func is_valid_material(mat: String) -> bool:
 
 
 ## Ukuran default blok per bentuk (Kubus 1 unit, gaya part klasik).
-static func default_size(shape: String) -> Vector3:
+static func default_size(_shape: String) -> Vector3:
 	return DEFAULT_SIZE
 
 

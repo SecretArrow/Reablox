@@ -4,7 +4,8 @@ extends CanvasLayer
 ##   var tut := preload("res://scripts/ui/tutorial.gd").new()
 ##   add_child(tut)
 ##   tut.start()
-## Selesai (atau dilewati) -> Settings.set_value("tutorial_done", true), GameState.first_run = false.
+## Selesai (atau dilewati) -> Settings.set_value("tutorial_done", true),
+## GameState.first_run = false.
 
 signal finished
 
@@ -15,6 +16,42 @@ const STEPS: Array = [
 	{"title": "tut_4_title", "body": "tut_4_body", "hl": "bottom_right"},
 	{"title": "tut_5_title", "body": "tut_5_body", "hl": "none"},
 	{"title": "tut_6_title", "body": "tut_6_body", "hl": "none"},
+]
+
+const FB_TITLES := [
+	"Selamat Datang di Reablox",
+	"Bergersi",
+	"Kamera",
+	"Lompat & Lari",
+	"Mode Bangun",
+	"Simpan Dunia",
+]
+
+const FB_TITLES_EN := [
+	"Welcome to Reablox",
+	"Moving Around",
+	"Camera",
+	"Jump & Sprint",
+	"Build Mode",
+	"Save Your World",
+]
+
+const FB_BODIES := [
+	"Jelajahi dunia, bangun apa saja, lalu bagikan ke temanmu. Ikuti panduan singkat ini.",
+	"Gunakan joystick di sisi kiri layar untuk berjalan.",
+	"Sentuh dan seret di sisi kanan layar untuk melihat sekeliling.",
+	"Tombol besar di kanan bawah: lompat, lari, dan aksi.",
+	"Buka mode bangun, pilih blok, lalu tempatkan di dunia.",
+	"Simpan duniamu dari menu jeda agar tidak hilang.",
+]
+
+const FB_BODIES_EN := [
+	"Explore the world, build anything, then share it with friends. Quick guide ahead.",
+	"Use the joystick on the left side of the screen to walk.",
+	"Touch and drag on the right side of the screen to look around.",
+	"Big buttons at the bottom right: jump, sprint, and action.",
+	"Open build mode, pick a block, then place it in the world.",
+	"Save your world from the pause menu so it is never lost.",
 ]
 
 var _index: int = -1
@@ -183,69 +220,23 @@ func _t(key: String, fb_id: String, fb_en: String) -> String:
 	return fb_en if Locale.get_language() == "en" else fb_id
 
 
+func _fb_pick(arr: Array, fallback: String) -> String:
+	if _index >= 0 and _index < arr.size():
+		return String(arr[_index])
+	return fallback
+
+
 func _fb_title() -> String:
-	match _index:
-		0:
-			return "Selamat Datang di RBlox"
-		1:
-			return "Bergersi"
-		2:
-			return "Kamera"
-		3:
-			return "Lompat & Lari"
-		4:
-			return "Mode Bangun"
-		5:
-			return "Simpan Dunia"
-	return "RBlox"
+	return _fb_pick(FB_TITLES, "Reablox")
 
 
 func _fb_title_en() -> String:
-	match _index:
-		0:
-			return "Welcome to RBlox"
-		1:
-			return "Moving Around"
-		2:
-			return "Camera"
-		3:
-			return "Jump & Sprint"
-		4:
-			return "Build Mode"
-		5:
-			return "Save Your World"
-	return "RBlox"
+	return _fb_pick(FB_TITLES_EN, "Reablox")
 
 
 func _fb_body() -> String:
-	match _index:
-		0:
-			return "Jelajahi dunia, bangun apa saja, lalu bagikan ke temanmu. Ikuti panduan singkat ini."
-		1:
-			return "Gunakan joystick di sisi kiri layar untuk berjalan."
-		2:
-			return "Sentuh dan seret di sisi kanan layar untuk melihat sekeliling."
-		3:
-			return "Tombol besar di kanan bawah: lompat, lari, dan aksi."
-		4:
-			return "Buka mode bangun, pilih blok, lalu tempatkan di dunia."
-		5:
-			return "Simpan duniamu dari menu jeda agar tidak hilang."
-	return ""
+	return _fb_pick(FB_BODIES, "")
 
 
 func _fb_body_en() -> String:
-	match _index:
-		0:
-			return "Explore the world, build anything, then share it with friends. Quick guide ahead."
-		1:
-			return "Use the joystick on the left side of the screen to walk."
-		2:
-			return "Touch and drag on the right side of the screen to look around."
-		3:
-			return "Big buttons at the bottom right: jump, sprint, and action."
-		4:
-			return "Open build mode, pick a block, then place it in the world."
-		5:
-			return "Save your world from the pause menu so it is never lost."
-	return ""
+	return _fb_pick(FB_BODIES_EN, "")

@@ -1,7 +1,7 @@
-# RBlox Bluetooth Plugin (ALPHA — kerangka)
+# Reablox Bluetooth Plugin (ALPHA — kerangka)
 
 Plugin Android (Godot Android plugin v2) untuk transport multiplayer
-Bluetooth RFCOMM pada RBlox. Status saat ini: **kerangka / skeleton**.
+Bluetooth RFCOMM pada Reablox. Status saat ini: **kerangka / skeleton**.
 File `BluetoothPlugin.kt` belum dikompilasi di CI dan belum dipasang ke
 build Godot; ia mendefinisikan kontrak API yang akan diimplementasikan.
 
@@ -53,8 +53,8 @@ memakai fitur apa pun (request dari plugin, hasil via signal).
 3. Di GDScript, plugin diakses via singleton engine:
 
 ```gdscript
-if Engine.has_singleton("RBloxBluetooth"):
-    var bt := Engine.get_singleton("RBloxBluetooth")
+if Engine.has_singleton("ReabloxBluetooth"):
+    var bt := Engine.get_singleton("ReabloxBluetooth")
     bt.on_message.connect(_on_bt_line)
     bt.startServer()
 ```

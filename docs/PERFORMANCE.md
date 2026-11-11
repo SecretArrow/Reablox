@@ -1,6 +1,6 @@
-# Performance & Polygon Budget — RBlox
+# Performance & Polygon Budget — Reablox
 
-Dokumen ini adalah acuan resmi anggaran polygon (triangles/tris) RBlox agar game
+Dokumen ini adalah acuan resmi anggaran polygon (triangles/tris) Reablox agar game
 tetap lancar **60 FPS** di perangkat Android, terutama HP kelas menengah ke bawah
 (RAM 3–4 GB). Aturan yang sama berlaku untuk kontributor konten, pembuat aksesori,
 dan pengembangan fitur baru: **detail tidak boleh dibayar dengan polygon**, karena
@@ -10,7 +10,7 @@ fill-rate, draw call, dan panas (thermal throttling) yang mengikutinya.
 ## 1. Tabel Budget Polygon per Kategori
 
 Batas maksimal Roblox Studio untuk satu MeshPart adalah 20.000 tris, namun angka
-itu tidak disarankan untuk satu objek di game mobile. RBlox memakai anggaran
+itu tidak disarankan untuk satu objek di game mobile. Reablox memakai anggaran
 berikut (sudah dikodekan sebagai kebijakan di `scripts/autoload/poly_budget.gd`):
 
 | Kategori Objek | Rekomendasi (warn) | Maksimum (over) | Keterangan |
@@ -26,9 +26,9 @@ frame kamera dijaga **≤ 100.000 tris (ideal)** dan **tidak boleh melebihi
 200.000 tris**. Kedua angka ini juga dikodekan sebagai `SCENE_TARGET` dan
 `SCENE_MAX` di `PolyBudget`.
 
-## 2. Angka Nyata RBlox (Primitif Bawaan)
+## 2. Angka Nyata Reablox (Primitif Bawaan)
 
-Seluruh blok RBlox dirender lewat `MMChunks` (MultiMesh per chunk 16 unit), dan
+Seluruh blok Reablox dirender lewat `MMChunks` (MultiMesh per chunk 16 unit), dan
 setiap bentuk primitif sengaja dibuat rendah polygon sehingga satu objek apa pun
 selalu masuk budget environment ≤ 500 tris:
 
@@ -53,7 +53,7 @@ Konsekuensi praktisnya:
   ini adalah hasil pengukuran aktual mesh Godot (bukan teori), dan bila seseorang
   menaikkan segmen primitif tanpa memperbarui tabel, CI langsung merah.
 
-## 3. Cara RBlox Memenuhi Budget (Pemetaan Tips Mobile)
+## 3. Cara Reablox Memenuhi Budget (Pemetaan Tips Mobile)
 
 1. **Textures & detail murah (PBR/Normal Map).** Detail permukaan tidak dibuat
    dari polygon tambahan. Material primitif memakai vertex color + flat shading

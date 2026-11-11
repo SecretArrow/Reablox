@@ -1,5 +1,5 @@
 extends Control
-## AvatarEditor — editor avatar RBlox (landscape, touch, tombol >= 48px).
+## AvatarEditor — editor avatar Reablox (landscape, touch, tombol >= 48px).
 ## Kiri: preview 3D (SubViewport, auto-rotate + drag yaw). Kanan: tab slot
 ## kosmetik, palet 24 warna (skin/shirt/pants/hair), 8 preset, Acak, Simpan.
 

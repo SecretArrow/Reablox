@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c7q6l8nuon4qj"
-path="res://.godot/imported/rblox-avatar.png-008fb86960f4ebaeae7b048bc00ab27d.ctex"
+uid="uid://ck2x8bqdcwuer"
+path="res://.godot/imported/reablox-menu.png-373c06e9f1063f8d07bbaec214f22ad1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://docs/screenshots/rblox-avatar.png"
-dest_files=["res://.godot/imported/rblox-avatar.png-008fb86960f4ebaeae7b048bc00ab27d.ctex"]
+source_file="res://docs/screenshots/reablox-menu.png"
+dest_files=["res://.godot/imported/reablox-menu.png-373c06e9f1063f8d07bbaec214f22ad1.ctex"]
 
 [params]
 

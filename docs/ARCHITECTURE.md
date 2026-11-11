@@ -1,8 +1,8 @@
-# Arsitektur RBlox
+# Arsitektur Reablox
 
 ## Ringkasan
 
-RBlox adalah game sandbox 3D (Godot 4.4 / GDScript) dengan pola **orchestrator + autoload facade**:
+Reablox adalah game sandbox 3D (Godot 4.4 / GDScript) dengan pola **orchestrator + autoload facade**:
 
 ```
 main_menu ──▶ world_select ──▶ game.tscn (Orchestrator)

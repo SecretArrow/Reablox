@@ -1,4 +1,4 @@
-# Multiplayer RBlox — Arsitektur & Protokol
+# Multiplayer Reablox — Arsitektur & Protokol
 
 Status: MVP LAN (Alpha). Transport lain (Bluetooth, WiFi Direct) menyusul
 via plugin Android.

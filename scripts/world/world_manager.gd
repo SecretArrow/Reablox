@@ -1,7 +1,7 @@
 extends RefCounted
 ## WorldManager — helper statis membangun / update / serialize dunia dari JSON
 ## skema worklog Task 1:
-##   {"format":"rblox-world","version":1,"meta":{...},"settings":{...},
+##   {"format":"reablox-world","version":1,"meta":{...},"settings":{...},
 ##    "spawn_points":[[x,y,z]],
 ##    "blocks":[{id,shape,pos,size,color,mat,anchored,script}],
 ##    "props":[{type,role,pos,...}],
@@ -408,7 +408,7 @@ static func to_vec3(v: Variant) -> Vector3:
 static func find_terrain(root: Node3D) -> Node3D:
 	if root == null:
 		return null
-	var scr: GDScript = load("res://scripts/build/terrain.gd") as GDScript
+	var scr: GDScript = WorldTerrain
 	if scr == null:
 		return null
 	var stack: Array[Node] = [root]

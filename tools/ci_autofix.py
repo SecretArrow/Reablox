@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""CI Auto-Fix RBlox.
+"""CI Auto-Fix Reablox.
 
 Dipanggil oleh workflow .github/workflows/autofix.yml setelah workflow
-"Build Android APK" selesai dengan status FAILURE (atau via manual dispatch).
+"CI" / "Android Build & E2E" selesai dengan status FAILURE (atau via manual dispatch).
 
 Alur:
   (a) Tentukan ID run yang gagal:
       - utama: baca GITHUB_EVENT_PATH (payload workflow_run) -> workflow_run.id
-      - fallback: `gh run list --workflow "Build Android APK" --status failure ...`
+      - fallback: `gh run list --workflow "Android Build & E2E" --status failure ...`
   (b) Ambil log gagal: `gh run view <id> --log-failed` -> /tmp/failed.log
       (guard: bila kosong/gagal, coba `--log` penuh; tetap gagal -> lanjut saja)
   (c) Ekstrak baris error penting (regex Parse Error|SCRIPT ERROR|ERROR|error:, max 60 baris)
@@ -65,7 +65,7 @@ def get_failed_run_id() -> str | None:
         except Exception as exc:
             print(f"[autofix] WARN baca GITHUB_EVENT_PATH gagal: {exc}")
     rc, out = sh([
-        "gh", "run", "list", "--workflow", "Build Android APK",
+        "gh", "run", "list", "--workflow", "Android Build & E2E",
         "--status", "failure", "--limit", "1",
         "--json", "databaseId", "-q", ".[0].databaseId",
     ])
@@ -158,7 +158,7 @@ def commit_and_push() -> bool:
     if last_commit_subject().startswith(COMMIT_PREFIX):
         print("[autofix] commit terakhir sudah [autofix] -> JANGAN push (anti-loop)")
         return False
-    sh(["git", "config", "user.name", "rblox-autofix-bot"])
+    sh(["git", "config", "user.name", "reablox-autofix-bot"])
     sh(["git", "config", "user.email", "actions@github.com"])
     sh(["git", "add", "-A"])
     rc, out = sh(["git", "commit", "-m", COMMIT_MESSAGE])
@@ -183,7 +183,7 @@ def run_link(run_id: str | None) -> str:
 
 def ensure_issue(run_id: str | None, error_text: str) -> None:
     body = (
-        "Workflow **Build Android APK** gagal dan auto-fix tidak menghasilkan "
+        "Workflow **Android Build & E2E** gagal dan auto-fix tidak menghasilkan "
         "perubahan yang bisa dipush (atau sedang aktif guard anti-loop).\n\n"
         f"Run: {run_link(run_id)}\n\n"
         "Ekstrak error:\n\n```text\n"
@@ -210,7 +210,7 @@ def ensure_issue(run_id: str | None, error_text: str) -> None:
 
 # ------------------------------------------------------------------- main
 def main() -> int:
-    print("=== RBlox CI Auto-Fix ===")
+    print("=== Reablox CI Auto-Fix ===")
     run_id = get_failed_run_id()
     if run_id and fetch_failed_log(run_id):
         error_text = extract_errors()

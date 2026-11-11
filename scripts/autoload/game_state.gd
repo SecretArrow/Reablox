@@ -97,32 +97,32 @@ func _run_demo_shots(dir: String) -> void:
 
 		# 4) Editor avatar — preview 3D + tab kustomisasi.
 	await _wait_frames(60)
-	_capture("%s/rblox-menu.png" % dir)
+	_capture("%s/reablox-menu.png" % dir)
 	# 1) Gameplay kota pagi — kamera sinematik menyusuri koridor jalan.
 	pending_action = {"mode": "play", "world_id": "city"}
 	goto_scene("res://scenes/game.tscn")
 	await _wait_frames(55)
 	_stage_city_shot()
 	await _wait_frames(130)
-	_capture("%s/rblox-gameplay.png" % dir)
+	_capture("%s/reablox-gameplay.png" % dir)
 	# 2) Mode build di kota — lengkung pelangi + HUD build aktif.
 	pending_action = {"mode": "build", "world_id": "city"}
 	goto_scene("res://scenes/game.tscn")
 	await _wait_frames(55)
 	_stage_build_shot()
 	await _wait_frames(60)
-	_capture("%s/rblox-build.png" % dir)
+	_capture("%s/reablox-build.png" % dir)
 	# 3) Obby senja — spiral platform warna-warni.
 	pending_action = {"mode": "play", "world_id": "obby"}
 	goto_scene("res://scenes/game.tscn")
 	await _wait_frames(55)
 	_stage_obby_shot()
 	await _wait_frames(130)
-	_capture("%s/rblox-obby.png" % dir)
+	_capture("%s/reablox-obby.png" % dir)
 	# 4) Editor avatar — preview 3D + tab kustomisasi.
 	goto_scene("res://scenes/avatar_editor.tscn")
 	await _wait_frames(55)
-	_capture("%s/rblox-avatar.png" % dir)
+	_capture("%s/reablox-avatar.png" % dir)
 	await _wait_frames(10)
 	get_tree().quit()
 

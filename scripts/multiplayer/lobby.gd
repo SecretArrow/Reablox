@@ -463,7 +463,7 @@ func _refresh_worlds() -> void:
 
 func _empty_world_json() -> Dictionary:
 	return {
-		"format": "rblox-world",
+		"format": "reablox-world",
 		"version": 1,
 		"meta": {"name": "MP Empty", "is_template": false},
 		"settings":

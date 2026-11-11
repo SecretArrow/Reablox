@@ -1,9 +1,9 @@
-# rbx_pipeline.py — RBlox Asset Pipeline (Blender headless, siap MCP/AI)
+# rbx_pipeline.py — Reablox Asset Pipeline (Blender headless, siap MCP/AI)
 #
 # Otomatisasi "Roblox Modern": import GLB hasil AI generator (Meshy/Tripo/CSM)
 # → decimate ke budget tris → bevel otomatis sudut tajam (plastik Roblox)
 # → material dasar → pivot dasar-tengah + fit ke unit grid → audit budget
-# → export GLB siap import Godot/RBlox.
+# → export GLB siap import Godot/Reablox.
 #
 # Pakai (CLI):
 #   blender --background --python rbx_pipeline.py -- \
@@ -39,11 +39,11 @@ RBLOX_BUDGETS = {
 def parse_args():
     argv = sys.argv
     argv = argv[argv.index("--") + 1:] if "--" in argv else []
-    p = argparse.ArgumentParser(description="RBlox asset pipeline")
+    p = argparse.ArgumentParser(description="Reablox asset pipeline")
     p.add_argument("--input", required=True, help="GLB/FBX/OBJ mentah dari AI")
     p.add_argument("--output", required=True, help="path output .glb")
     p.add_argument("--category", default="small_prop", choices=sorted(RBLOX_BUDGETS),
-                   help="kategori budget polygon RBlox")
+                   help="kategori budget polygon Reablox")
     p.add_argument("--decimate", type=float, default=0.0,
                    help="ratio decimate 0.1-1.0; 0 = otomatis ke budget")
     p.add_argument("--bevel", type=float, default=0.02,

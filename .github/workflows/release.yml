@@ -1,0 +1,115 @@
+name: Release
+
+# Rilis stabil otomatis:
+# 1) Setelah "Android Build & E2E" sukses untuk tag v* -> terbitkan GitHub Release
+#    (APK signed + release notes) dari artifact run tersebut.
+# 2) Manual (workflow_dispatch): terbitkan rilis dari build main terbaru.
+
+on:
+  workflow_run:
+    workflows: ["Android Build & E2E"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      from_run_id:
+        description: "Run ID build yang mau dirilis (kosong = build main terbaru yang sukses)"
+        type: string
+        default: ""
+      tag:
+        description: "Tag rilis (mis. v0.4.0). Kosong = v<tanggal>-manual"
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Terbitkan GitHub Release (APK signed)
+    runs-on: ubuntu-latest
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch'
+          || (github.event.workflow_run.conclusion == 'success'
+              && startsWith(github.event.workflow_run.head_branch, 'v')) }}
+    timeout-minutes: 15
+    steps:
+      - name: Resolve run & tag
+        id: meta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          WR_ID: ${{ github.event.workflow_run.id }}
+          WR_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          INPUT_RUN: ${{ github.event.inputs.from_run_id }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -e
+          if [ -n "$INPUT_RUN" ]; then
+            RUN_ID="$INPUT_RUN"
+          elif [ -n "$WR_ID" ]; then
+            RUN_ID="$WR_ID"
+          else
+            RUN_ID=$(gh run list --workflow "Android Build & E2E" --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          fi
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "::error::Tidak ada run build sukses untuk dirilis."
+            exit 1
+          fi
+          if [ -n "$INPUT_TAG" ]; then
+            TAG="$INPUT_TAG"
+          elif [ -n "$WR_BRANCH" ] && [[ "$WR_BRANCH" == v* ]]; then
+            TAG="$WR_BRANCH"
+          else
+            TAG="v$(date +%Y%m%d%H%M)-manual"
+          fi
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Release dari run $RUN_ID dengan tag $TAG"
+
+      - name: Download APK artifacts dari run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          mkdir -p build
+          gh run download "${{ steps.meta.outputs.run_id }}" -n Reablox-Android -D build
+          ls -lh build
+
+      - name: Verifikasi signature sebelum rilis
+        run: |
+          set -e
+          APKSIGNER="$ANDROID_HOME/build-tools/34.0.0/apksigner"
+          ls "$ANDROID_HOME/build-tools/" || true
+          if [ ! -x "$APKSIGNER" ]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;34.0.0" > /dev/null
+          fi
+          fail=0
+          for f in build/Reablox-*.apk; do
+            "$APKSIGNER" verify --print-certs "$f" > "cert_$(basename "$f").txt" || fail=1
+            if grep -q "CN=Android Debug" "cert_$(basename "$f").txt"; then
+              echo "::error::$f ditandatangani DEBUG — rilis stabil ditolak"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Buat GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -e
+          TAG="${{ steps.meta.outputs.tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG sudah ada — upload ulang asset"
+          else
+            gh release create "$TAG" --title "Reablox $TAG" --generate-notes
+          fi
+          gh release upload "$TAG" build/Reablox-*.apk --clobber
+          echo "Release $TAG terbit dengan APK signed."

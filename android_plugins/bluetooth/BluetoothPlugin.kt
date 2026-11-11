@@ -1,4 +1,4 @@
-// RBlox Bluetooth Plugin — SKELETON (Alpha).
+// Reablox Bluetooth Plugin — SKELETON (Alpha).
 //
 // KERANGKA SAJA: file ini BELUM dikompilasi di CI dan belum menjadi AAR
 // yang dipasang ke build Godot Android. Ia mendefinisikan kontrak API
@@ -9,7 +9,7 @@
 // lalu didaftarkan sebagai Android plugin v2 pada preset export.
 // Lihat android_plugins/bluetooth/README.md untuk roadmap lengkap.
 
-package com.rblox.plugins.bluetooth
+package com.reablox.plugins.bluetooth
 
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
@@ -29,7 +29,7 @@ import org.godotengine.godot.plugin.UsedByGodot
 class BluetoothPlugin(godot: Godot) : GodotPlugin(godot) {
 
     companion object {
-        // UUID layanan SPP tetap RBlox (harus sama host & client).
+        // UUID layanan SPP tetap Reablox (harus sama host & client).
         private val SPP_UUID: UUID = UUID.fromString("fa87c0d0-afac-11de-8a39-0800200c9a66")
         const val SIGNAL_ON_MESSAGE = "on_message"
         const val SIGNAL_ON_STATE = "on_state"
@@ -40,7 +40,7 @@ class BluetoothPlugin(godot: Godot) : GodotPlugin(godot) {
     private val clientSockets = mutableListOf<BluetoothSocket>()
     private var acceptThread: Thread? = null
 
-    override fun getPluginName(): String = "RBloxBluetooth"
+    override fun getPluginName(): String = "ReabloxBluetooth"
 
     override fun getPluginSignals(): MutableSet<SignalInfo> {
         return mutableSetOf(

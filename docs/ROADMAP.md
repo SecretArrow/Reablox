@@ -1,4 +1,4 @@
-# Rencana Pengembangan RBlox — MVP → Alpha → v1.0
+# Rencana Pengembangan Reablox — MVP → Alpha → v1.0
 
 ## Fase 1 — MVP (v0.1, sekarang) ✅
 

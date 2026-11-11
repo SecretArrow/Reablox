@@ -1,5 +1,5 @@
 extends Node3D
-## Game — orkestrator scene gameplay RBlox (Task 2-e1).
+## Game — orkestrator scene gameplay Reablox (Task 2-e1).
 ## Resolve world_json (Net > pending_action > fallback empty) -> build dunia ->
 ## pemain lokal/remote -> touch controls -> mode (tick 1/30) -> env -> HUD ->
 ## build -> chat -> tutorial -> pause panel. Net.leave() hanya lewat menu.
@@ -90,7 +90,7 @@ func _resolve_world_json() -> void:
 			world_json = tpl2.call("build_world_json", "empty")
 	if world_json.is_empty():
 		world_json = {
-			"format": "rblox-world",
+			"format": "reablox-world",
 			"version": 1,
 			"meta": {"name": "Dunia"},
 			"settings": {"game_mode": "sandbox", "build_allowed": true},
@@ -101,8 +101,9 @@ func _resolve_world_json() -> void:
 
 ## Lengkapi field skema wajib agar modul lain bisa membaca dengan aman.
 func _normalize(w: Dictionary) -> void:
-	if String(w.get("format", "")) != "rblox-world":
-		w["format"] = "rblox-world"
+	var fmt := String(w.get("format", ""))
+	if fmt != "reablox-world" and fmt != "rblox-world":
+		w["format"] = "reablox-world"
 	w["version"] = int(w.get("version", 1))
 	if not (w.get("meta") is Dictionary):
 		w["meta"] = {"name": "Dunia"}

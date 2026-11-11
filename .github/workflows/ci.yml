@@ -1,0 +1,122 @@
+name: CI
+
+# Quality gate: lint + static analysis + unit/integration/gameplay tests.
+# Berjalan di SETIAP push (semua branch + tag) dan PR — cepat (headless, tanpa Android SDK).
+# android-build.yml menjalankan ulang gate yang sama secara internal sebelum build.
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - "prompts/**"
+      - ".github/**/*.png"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: "4.4.1"
+
+jobs:
+  lint:
+    name: Lint & format check (gdtoolkit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install gdtoolkit (gdformat + gdlint)
+        run: pip install "gdtoolkit==4.*"
+
+      - name: gdformat --check (code format)
+        run: |
+          set -o pipefail
+          if ! gdformat --check scripts/ tools/ scenes/; then
+            echo "::error::Format kode tidak sesuai gdformat. Jalankan: gdformat scripts/ tools/ scenes/"
+            exit 1
+          fi
+
+      - name: gdlint (static analysis)
+        run: |
+          set -o pipefail
+          if ! gdlint scripts/ tools/; then
+            echo "::error::gdlint menemukan pelanggaran style. Perbaiki sebelum merge."
+            exit 1
+          fi
+
+  unit-tests:
+    name: Unit, integration & gameplay tests (headless Godot)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Godot editor
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/bin/godot
+          key: godot-${{ env.GODOT_VERSION }}-linux-editor-v2
+
+      - name: Install Godot ${{ env.GODOT_VERSION }}
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          V="${GODOT_VERSION}"
+          curl -L --retry 3 -o /tmp/godot.zip "https://github.com/godotengine/godot/releases/download/${V}-stable/Godot_v${V}-stable_linux.x86_64.zip"
+          unzip -o /tmp/godot.zip -d /tmp/godotbin
+          sudo mv /tmp/godotbin/Godot_v${V}-stable_linux.x86_64 /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+
+      - name: Import project assets
+        run: godot --headless --import --path "$PWD"
+
+      - name: Run all test scenes (unit + integration + gameplay + policy)
+        run: |
+          set -o pipefail
+          FAIL=0
+          mkdir -p testlogs
+          shopt -s nullglob
+          for tscn in tools/tests/test_*.tscn tools/test_mm.tscn tools/test_budget.tscn; do
+            name="$(basename "$tscn" .tscn)"
+            echo "" && echo "================ $name ================"
+            timeout 300 godot --headless "res://$tscn" 2>&1 | tee "testlogs/${name}.log" || true
+            if grep -q "ALL_TESTS_PASS" "testlogs/${name}.log"; then
+              echo "✅ $name PASS"
+            else
+              echo "::error::Test scene $tscn gagal (tidak mencetak ALL_TESTS_PASS)"
+              FAIL=1
+            fi
+            # Error skrip tidak boleh muncul di run manapun
+            if grep -qE "SCRIPT ERROR|Parse Error" "testlogs/${name}.log"; then
+              echo "::error::Error skrip terdeteksi di $tscn"
+              FAIL=1
+            fi
+          done
+          exit $FAIL
+
+      - name: Upload test logs (jika gagal)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-test-logs
+          path: testlogs/
+          retention-days: 7

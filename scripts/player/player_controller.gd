@@ -7,6 +7,9 @@ extends CharacterBody3D
 ## Remote: input is disabled and the body lerps toward the last state pushed
 ## through set_net_state().
 
+signal health_changed(hp: float, max_hp: float)
+signal died
+
 const CameraRigScript := preload("res://scripts/player/camera_rig.gd")
 const AVATAR_BUILDER_PATH := "res://scripts/avatar/avatar_builder.gd"
 
@@ -24,9 +27,6 @@ const STATE_IDLE := 0
 const STATE_WALK := 1
 const STATE_RUN := 2
 const STATE_JUMP := 3
-
-signal health_changed(hp: float, max_hp: float)
-signal died
 
 var info: Dictionary = {}
 var is_local := false

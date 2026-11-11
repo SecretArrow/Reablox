@@ -1,5 +1,5 @@
 extends Control
-## MainMenu — layar utama RBlox (v0.2 AAA pass): gradien hero, blok dekoratif
+## MainMenu — layar utama Reablox (v0.2 AAA pass): gradien hero, blok dekoratif
 ## melayang, judul besar, navigasi tombol chunky dengan animasi tekan,
 ## panel pengaturan overlay, toast achievement, chip versi & nama pemain.
 
@@ -69,7 +69,8 @@ func _build_ui() -> void:
 	box.add_child(tagline)
 
 	var ver := str(ProjectSettings.get_setting("application/config/version", "0.1.0"))
-	var who := UiKit.make_label("%s  |  v%s" % [GameState.player_name, ver], 15)  # EN: "<player> | v<version>"
+	# EN: "<player> | v<version>"
+	var who := UiKit.make_label("%s  |  v%s" % [GameState.player_name, ver], 15)
 	who.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	who.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
 	box.add_child(who)
@@ -92,7 +93,7 @@ func _build_ui() -> void:
 	box.add_child(_menu_button(Locale.t("menu_quit"), _quit_app))
 
 	# Chip versi kanan-bawah (identitas build ala konsol game).
-	var chip := UiKit.make_chip("RBlox v" + ver, Color(0, 0, 0, 0.4))
+	var chip := UiKit.make_chip("Reablox v" + ver, Color(0, 0, 0, 0.4))
 	chip.set_anchors_and_offsets_preset(
 		Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 14
 	)

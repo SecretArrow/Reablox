@@ -5,7 +5,7 @@ menghasilkan mesh mentah bergaya Roblox Modern: chunky, beveled edges, clean
 geometry, low-poly. Semua prompt sengaja ditulis dalam **bahasa Inggris** karena
 model generasi 3D dilatih dominan pada deskripsi Inggris — hasil jauh lebih akurat.
 
-Seluruh aset hasil pipeline ini wajib melewati audit budget polygon RBlox
+Seluruh aset hasil pipeline ini wajib melewati audit budget polygon Reablox
 (lihat `docs/PERFORMANCE.md`): avatar ≤ 5.000 tris, NPC ≤ 2.500, hero prop
 ≤ 4.000, prop kecil ≤ 1.000, environment ≤ 500 — dan script
 `tools/blender/rbx_pipeline.py` akan memvalidasinya otomatis.
@@ -30,7 +30,7 @@ gaya Roblox Modern — jangan dihapus atau diubah urutannya.
 
 ## 2. Karakter Blocky / Ranthro
 
-> Catatan teknis: badan avatar RBlox **sudah dibangun prosedural dari box**
+> Catatan teknis: badan avatar Reablox **sudah dibangun prosedural dari box**
 > (`scripts/avatar/avatar_builder.gd`) — itu cara paling bersih dan paling murah
 > (ratusan tris). Prompt AI karakter paling bernilai untuk **aksesoris** (topi,
 > rambut, sayap, gear) yang butuh bentuk khas namun tetap blocky.

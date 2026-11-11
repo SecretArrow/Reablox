@@ -1,5 +1,5 @@
 extends Node
-## PolyBudget — penjaga polygon budget agar RBlox stabil 60 FPS di Android.
+## PolyBudget — penjaga polygon budget agar Reablox stabil 60 FPS di Android.
 ##
 ## Mengimplementasikan anggaran tris per kategori objek (mengacu batas aman
 ## mobile): karakter 2.000-5.000, NPC 1.000-2.500, hero prop 1.500-4.000,
@@ -29,7 +29,7 @@ const BUDGETS := {
 const SCENE_TARGET := 100_000
 const SCENE_MAX := 200_000
 
-## Jumlah tris mesh primitif unit RBlox (terukur). HARUS sinkron dengan
+## Jumlah tris mesh primitif unit Reablox (terukur). HARUS sinkron dengan
 ## MMChunks._unit_mesh() (diverifikasi otomatis oleh tools/test_budget.gd).
 const SHAPE_TRIS := {
 	"box": 12,

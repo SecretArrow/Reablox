@@ -1,0 +1,84 @@
+name: Extended Tests
+
+# Pengujian diperluas: E2E DEEP otonom di emulator (multi-matriks API level)
+# + fuzz + full headless suite. Berjalan manual (workflow_dispatch) dan
+# nightly DEEP sudah ditangani universal-apk-test.yml (schedule 03:00 UTC).
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Mode E2E: SMOKE | STANDARD | DEEP | RELEASE"
+        type: string
+        default: DEEP
+      apk_source:
+        description: "Sumber APK: release | artifact"
+        type: string
+        default: release
+      release_tag:
+        description: "Tag release (apk_source=release)"
+        type: string
+        default: dev-build
+      autofix:
+        description: "Aktifkan repair loop otonom"
+        type: boolean
+        default: true
+      push_fixes:
+        description: "Push perbaikan otomatis ke main"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: extended-tests
+  cancel-in-progress: false
+
+jobs:
+  headless-suite:
+    name: Full headless test suite (ulang, deterministik)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Godot editor
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/bin/godot
+          key: godot-4.4.1-linux-editor-v2
+      - name: Install Godot 4.4.1
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          curl -L --retry 3 -o /tmp/godot.zip "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip"
+          unzip -o /tmp/godot.zip -d /tmp/godotbin
+          sudo mv /tmp/godotbin/Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
+          sudo chmod +x /usr/local/bin/godot
+      - name: Import & run semua test scene
+        run: |
+          set -o pipefail
+          godot --headless --import --path "$PWD"
+          FAIL=0
+          shopt -s nullglob
+          for tscn in tools/tests/test_*.tscn tools/test_mm.tscn tools/test_budget.tscn; do
+            name="$(basename "$tscn" .tscn)"
+            timeout 300 godot --headless "res://$tscn" 2>&1 | tee "${name}.log" || true
+            grep -q "ALL_TESTS_PASS" "${name}.log" || { echo "::error::$tscn gagal"; FAIL=1; }
+            grep -qE "SCRIPT ERROR|Parse Error" "${name}.log" && { echo "::error::Script error di $tscn"; FAIL=1; } || true
+          done
+          exit $FAIL
+
+  e2e-deep:
+    name: E2E autonomous (mode dipilih)
+    needs: headless-suite
+    uses: ./.github/workflows/universal-apk-test.yml
+    with:
+      mode: ${{ github.event.inputs.mode || 'DEEP' }}
+      apk_source: ${{ github.event.inputs.apk_source || 'release' }}
+      release_tag: ${{ github.event.inputs.release_tag || 'dev-build' }}
+      autofix: ${{ github.event.inputs.autofix != false }}
+      push_fixes: ${{ github.event.inputs.push_fixes == true }}
+      attach_to_release: false
+    secrets: inherit

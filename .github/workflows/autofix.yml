@@ -1,14 +1,20 @@
 name: CI Auto-Fix
 
+# Reaksi otomatis saat pipeline gagal:
+# - Ambil log kegagalan, analisis, coba perbaiki (format + locale sync),
+#   commit & push (anti-loop: maks 1x per kegagalan).
+# - Jika tidak bisa auto-fix -> buka/komentari issue dengan ekstrak error.
+
 on:
   workflow_run:
-    workflows: [ "Build Android APK" ]
+    workflows: [ "CI", "Android Build & E2E" ]
     types: [ completed ]
   workflow_dispatch:
 
 permissions:
   contents: write
   issues: write
+  actions: read
 
 concurrency:
   group: autofix

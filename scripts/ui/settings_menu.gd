@@ -127,7 +127,8 @@ func _build() -> void:
 
 	# Kontrol Orang Tua (EN: Parental Controls)
 	content.add_child(UiKit.make_label(Locale.t("settings_parental"), 24))
-	var chat_cb := UiKit.make_check(Locale.t("settings_chat_enable"), Settings.chat_enabled())  # EN: Allow Text Chat
+	# EN: Allow Text Chat
+	var chat_cb := UiKit.make_check(Locale.t("settings_chat_enable"), Settings.chat_enabled())
 	chat_cb.toggled.connect(_on_chat_toggled)
 	content.add_child(chat_cb)
 
@@ -155,7 +156,7 @@ func _build() -> void:
 	tut_btn.pressed.connect(_on_reset_tutorial)
 	content.add_child(tut_btn)
 
-	# Tentang RBlox (EN: About RBlox)
+	# Tentang Reablox (EN: About Reablox)
 	var about_btn := UiKit.make_button(Locale.t("settings_credits"), Vector2(340, 56), false)
 	about_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	about_btn.pressed.connect(_on_about)
@@ -236,7 +237,8 @@ func _percent(v: float) -> String:
 
 func _on_reset_tutorial() -> void:
 	Settings.set_value("tutorial_done", false)
-	_show_info(Locale.t("tutorial_reset_done"))  # EN: Tutorial will be shown again the next time you play.
+	# EN: Tutorial will be shown again the next time you play.
+	_show_info(Locale.t("tutorial_reset_done"))
 
 
 func _show_info(text: String) -> void:
@@ -255,7 +257,7 @@ func _on_about() -> void:
 	var ver := str(ProjectSettings.get_setting("application/config/version", "0.1.0"))
 	var dlg := AcceptDialog.new()
 	dlg.title = Locale.t("settings_credits")
-	# EN: "RBlox v{version}\nMade with Godot Engine.\n100% free, no ads."
+	# EN: "Reablox v{version}\nMade with Godot Engine.\n100% free, no ads."
 	dlg.dialog_text = Locale.t("settings_about_text", {"version": ver})
 	dlg.ok_button_text = Locale.t("common_ok")
 	dlg.min_size = Vector2i(460, 240)

@@ -1,5 +1,5 @@
 extends RefCounted
-## ThemeBuilder — tema UI kelas produksi untuk RBlox (dark / light).
+## ThemeBuilder — tema UI kelas produksi untuk Reablox (dark / light).
 ## v0.2 "AAA pass": tombol chunky 3D (border bawah + bayangan + efek tekan),
 ## panel kaca membulat, font tebal untuk kontrol, ProgressBar & toggle jelas,
 ## palet kontras tinggi ala platform game modern (Roblox-like).
@@ -121,7 +121,7 @@ static func _glass(bg: Color, radius: int) -> StyleBoxFlat:
 	return sb
 
 
-static func _style_label(t: Theme, text: Color, subtext: Color) -> void:
+static func _style_label(t: Theme, text: Color, _subtext: Color) -> void:
 	t.set_color("font_color", "Label", text)
 	t.set_color("font_shadow_color", "Label", Color(0, 0, 0, 0.35))
 	t.set_constant("shadow_offset_x", "Label", 1)
@@ -142,7 +142,7 @@ static func _style_line_edit(t: Theme, bg: Color, text: Color, accent: Color) ->
 	t.set_font_size("font_size", "LineEdit", FONT_DEFAULT)
 
 
-static func _style_option_button(t: Theme, field: Color, text: Color, accent: Color) -> void:
+static func _style_option_button(t: Theme, field: Color, text: Color, _accent: Color) -> void:
 	t.set_stylebox("normal", "OptionButton", _flat(field, CORNER_SM, 18.0, 12.0))
 	t.set_stylebox("hover", "OptionButton", _flat(field.lightened(0.08), CORNER_SM, 18.0, 12.0))
 	t.set_stylebox("pressed", "OptionButton", _flat(field.darkened(0.10), CORNER_SM, 18.0, 12.0))

@@ -1,6 +1,6 @@
-# CI/CD RBlox — Build APK, Release & Auto-Fix
+# CI/CD Reablox — Build APK, Release & Auto-Fix
 
-Dokumentasi pipeline CI/CD GitHub Actions untuk proyek Godot 4.4 **RBlox** (Android).
+Dokumentasi pipeline CI/CD GitHub Actions untuk proyek Godot 4.4 **Reablox** (Android).
 Semua workflow hanya memakai `${{ secrets.GITHUB_TOKEN }}` bawaan GitHub — tidak ada
 PAT/token keras yang disimpan di repo.
 
@@ -18,7 +18,7 @@ PAT/token keras yang disimpan di repo.
                          │                     │ gagal?
                          │                     └── fallback: preset "Android-Quick"
                          │                          (prebuilt, tanpa gradle)
-                     cek ukuran APK ≤ 300 MB → upload artifact "RBlox-Android"
+                     cek ukuran APK ≤ 300 MB → upload artifact "Reablox-Android"
                                              │
               ┌──────────────────────────────┼───────────────────────────────┐
               │ push ke main?                │ tag v* atau input             │
@@ -58,15 +58,15 @@ Terpicu oleh: push ke `main`, pull request ke `main`, push tag `v*`
 6. **Import aset**: `godot --headless --import --path "$PWD"`.
 7. **Export APK**: preset **"Android"** (gradle, minSdk 24 / targetSdk 34).
    Bila gagal → `::warning::` lalu fallback ke preset **"Android-Quick"**
-   (prebuilt, tanpa gradle). Hasil: `build/RBlox.apk`.
+   (prebuilt, tanpa gradle). Hasil: `build/Reablox.apk`.
 8. **Cek ukuran APK** maksimum **300 MB** (gagal bila lebih).
-9. **Upload artifact** `RBlox-Android` (retensi 14 hari, error bila APK tidak ada).
+9. **Upload artifact** `Reablox-Android` (retensi 14 hari, error bila APK tidak ada).
 
 ### Job `dev-release` — Pre-release berkelanjutan
 
 - Syarat: hanya untuk **push ke `main`**.
 - Mengunduh artifact APK lalu **menghapus & membuat ulang** release
-  `dev-build` (pre-release, judul "RBlox Dev Build") dengan `gh release`.
+  `dev-build` (pre-release, judul "Reablox Dev Build") dengan `gh release`.
   Selalu ada satu APK dev terbaru yang bisa diunduh pemain.
 
 ### Job `tag-release` — GitHub Release resmi
@@ -150,15 +150,15 @@ workflow* → centang **create_release** → APK diunggah ke release
 
 ## Release split per ABI (v0.2.0+)
 
-Setiap build sekarang menghasilkan **4 APK** (artifact `RBlox-Android`,
+Setiap build sekarang menghasilkan **4 APK** (artifact `Reablox-Android`,
 pre-release `dev-build`, dan GitHub Release bertag `v*`):
 
 | File | Arsitektur | Untuk |
 |---|---|---|
-| `RBlox-arm64-v8a.apk` | 64-bit ARM | HP modern (disarankan, terkecil & tercepat) |
-| `RBlox-armeabi-v7a.apk` | 32-bit ARM | HP/laptop lama |
-| `RBlox-x86_64.apk` | 64-bit x86 | Emulator, ChromeOS |
-| `RBlox-universal.apk` | semua | Cadangan/kompatibilitas maksimum |
+| `Reablox-arm64-v8a.apk` | 64-bit ARM | HP modern (disarankan, terkecil & tercepat) |
+| `Reablox-armeabi-v7a.apk` | 32-bit ARM | HP/laptop lama |
+| `Reablox-x86_64.apk` | 64-bit x86 | Emulator, ChromeOS |
+| `Reablox-universal.apk` | semua | Cadangan/kompatibilitas maksimum |
 
 Mekanisme: 3 preset ekspor tambahan (`Android-arm64`, `Android-armv7`,
 `Android-x86_64`) di `export_presets.cfg` — masing-masing hanya mengaktifkan
@@ -193,7 +193,7 @@ tile, dan jalan berupa box tebal ber-atap 0.1u (curb yang bisa dilangkahi).
 
 Hasil render dipakai untuk galeri README (`docs/screenshots/`, nama file
 dipertahankan apa adanya). Workflow CI juga menjalankan job `screenshots`
-paralel yang mengunggah kelima PNG sebagai artifact `RBlox-Screenshots`
+paralel yang mengunggah kelima PNG sebagai artifact `Reablox-Screenshots`
 pada setiap push main. Catatan: `xvfb-run` butuh `xauth` yang mungkin tak
 tersedia; pakai `Xvfb` langsung seperti di atas.
 
@@ -202,7 +202,7 @@ tersedia; pakai `Xvfb` langsung seperti di atas.
 Setiap push main (dev pre-release `dev-build`) dan tag `v*`, job `smoke-test`
 menguji **APK hasil release yang sudah terbit** — bukan artifact mentah build:
 
-1. `gh release download` APK `RBlox-x86_64.apk` (fallback `RBlox-universal.apk`)
+1. `gh release download` APK `Reablox-x86_64.apk` (fallback `Reablox-universal.apk`)
    dari tag rilisan yang diuji (`dev-build` atau tag `v*`).
 2. Android emulator (API 34, google_apis, x86_64, KVM, Pixel 5) dinyalakan
    headless (`-no-window -gpu swiftshader_indirect`).
@@ -211,7 +211,7 @@ menguji **APK hasil release yang sudah terbit** — bukan artifact mentah build:
    logcat paket `com.secretarrow.rblox` → screenshot → tap layar → screenshot →
    pastikan proses masih hidup. Lulus = `EMULATOR_SMOKE_PASS`.
 4. Screenshot `emulator-1.png` / `emulator-2.png` diunggah sebagai artifact
-   `RBlox-Emulator-Smoke` **dan dilampirkan ke release** (`--clobber`) sehingga
+   `Reablox-Emulator-Smoke` **dan dilampirkan ke release** (`--clobber`) sehingga
    bisa dilihat tanpa install.
 
 Catatan teknis: renderer project adalah `mobile` (Vulkan). Emulator CI tanpa

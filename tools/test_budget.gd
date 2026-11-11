@@ -77,6 +77,7 @@ func _ready() -> void:
 func _finish(failures: Array[String]) -> void:
 	if failures.is_empty():
 		print("BUDGET_TEST_PASS")
+		print("ALL_TESTS_PASS")  # unified CI marker (keep BUDGET_TEST_PASS above)
 	else:
 		for f in failures:
 			print("BUDGET_TEST_FAIL: ", f)
