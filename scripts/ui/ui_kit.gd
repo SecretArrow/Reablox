@@ -72,15 +72,15 @@ static func make_button_secondary(text: String, min_size: Vector2 = Vector2(160,
 	b.focus_mode = Control.FOCUS_NONE
 	var base := Color(1, 1, 1, 0.10)
 	var sb := _button_modern_sb(base)
-	sb.border_width_all = 1
+	sb.set_border_width_all(1)
 	sb.border_color = Color(1, 1, 1, 0.22)
 	b.add_theme_stylebox_override("normal", sb)
 	var sbh := _button_modern_sb(Color(1, 1, 1, 0.17))
-	sbh.border_width_all = 1
+	sbh.set_border_width_all(1)
 	sbh.border_color = Color(1, 1, 1, 0.32)
 	b.add_theme_stylebox_override("hover", sbh)
 	var sbp := _button_modern_sb(Color(1, 1, 1, 0.06), true)
-	sbp.border_width_all = 1
+	sbp.set_border_width_all(1)
 	sbp.border_color = Color(1, 1, 1, 0.15)
 	b.add_theme_stylebox_override("pressed", sbp)
 	b.add_theme_stylebox_override("disabled", _button_modern_sb(Color(0.45, 0.48, 0.56, 0.4)))

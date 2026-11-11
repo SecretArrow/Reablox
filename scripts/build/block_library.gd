@@ -103,7 +103,8 @@ static func make_material(mat: String, color: String) -> StandardMaterial3D:
 			m.emission = col
 			m.emission_energy_multiplier = 2.5
 		_:
-			m.roughness = 0.8
+			# Plastic ala bata mainan: cukup glossy agar ada kilau spekular.
+			m.roughness = 0.45
 	return m
 
 

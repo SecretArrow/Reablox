@@ -18,11 +18,15 @@ func _ready() -> void:
 	size = Vector2(MAP_SIZE, MAP_SIZE)
 	clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Bingkai modern: glass gelap membulat + border ganda (luar lembut, dalam terang).
 	_bg_box = StyleBoxFlat.new()
-	_bg_box.bg_color = Color(0.04, 0.05, 0.09, 0.7)
-	_bg_box.set_corner_radius_all(10)
+	_bg_box.bg_color = Color(0.055, 0.07, 0.12, 0.62)
+	_bg_box.set_corner_radius_all(14)
 	_bg_box.set_border_width_all(1)
-	_bg_box.border_color = Color(1.0, 1.0, 1.0, 0.25)
+	_bg_box.border_color = Color(1.0, 1.0, 1.0, 0.22)
+	_bg_box.shadow_color = Color(0, 0, 0, 0.30)
+	_bg_box.shadow_size = 10
+	_bg_box.shadow_offset = Vector2(0, 3)
 
 
 func set_range(m: float) -> void:
@@ -45,6 +49,14 @@ func _px_per_m() -> float:
 func _draw() -> void:
 	if _bg_box == null:
 		_bg_box = StyleBoxFlat.new()
+
+		# Penanda arah utara.
+
+		# Spawn point dunia aktif (hijau).
+
+		# NPC (merah) dan pemain remote (putih).
+
+		# Player lokal: segitiga kuning menghadap yaw.
 	draw_style_box(_bg_box, Rect2(Vector2.ZERO, size))
 
 	var center := size * 0.5
@@ -52,6 +64,14 @@ func _draw() -> void:
 	_player = null
 	if locals.size() > 0:
 		_player = locals[0] as Node3D
+
+		# Penanda arah utara.
+
+		# Spawn point dunia aktif (hijau).
+
+		# NPC (merah) dan pemain remote (putih).
+
+		# Player lokal: segitiga kuning menghadap yaw.
 	var cpos := _player.global_position if _player != null else Vector3.ZERO
 	var ppm := _px_per_m()
 	var font := ThemeDB.fallback_font
@@ -82,7 +102,9 @@ func _draw() -> void:
 						1.5
 					)
 
-	# NPC (merah) dan pemain remote (putih).
+		# NPC (merah) dan pemain remote (putih).
+
+		# Player lokal: segitiga kuning menghadap yaw.
 	_draw_group(get_tree().get_nodes_in_group("npcs"), cpos, ppm, Color(0.95, 0.3, 0.3))
 	_draw_group(
 		get_tree().get_nodes_in_group("remote_players"), cpos, ppm, Color(1.0, 1.0, 1.0, 0.95)

@@ -6,6 +6,10 @@ extends CanvasLayer
 ## The layer stays hidden until bind_player() attaches it to the local
 ## player (game.gd owns the instantiation). Multitouch: joystick and look
 ## are tracked per touch index so both thumbs can be used at once.
+##
+## Visual pass: glass joystick (soft base, tick marks, knob with accent
+## dot) and round glass buttons with vector glyphs drawn via _draw() — no
+## unicode arrows/emoji, so everything stays crisp at any DPI.
 
 signal move_changed(vec: Vector2)
 signal look_delta(delta: Vector2)
@@ -14,11 +18,17 @@ signal jump_released
 signal sprint_toggled(on: bool)
 signal action_a_pressed
 
-const UIKIT_PATH := "res://scripts/ui/ui_kit.gd"
+const UiKit := preload("res://scripts/ui/ui_kit.gd")
 const STICK_RADIUS := 62.0
 const DEAD_ZONE := 0.08
 const MOUSE_TOUCH_ID := 100  # Synthetic touch index for desktop mouse testing.
 const LAYER_ORDER := 14  # Above HUD, below pause overlay (20).
+const JUMP_SIZE := 72.0
+const SPRINT_SIZE := 64.0
+const ACTION_SIZE := 60.0
+const GLASS_BG := Color(0.10, 0.13, 0.20, 0.72)
+const GLASS_HOVER := Color(0.17, 0.21, 0.31, 0.82)
+const GLASS_PRESSED := Color(0.05, 0.07, 0.12, 0.88)
 
 var _player = null
 var _root: Control = null
@@ -35,9 +45,11 @@ var _btn_sprint: Button = null
 var _btn_action: Button = null
 
 
-# Custom-drawn joystick (base ring + knob), input-transparent.
+# Custom-drawn joystick: soft glass base, direction ticks and a knob whose
+# inner dot lights up in the accent blue while dragging. Input-transparent.
 class JoystickView:
 	extends Control
+	const ACCENT := Color("#3d6df2")
 	var radius := 62.0
 	var knob := Vector2.ZERO
 
@@ -47,10 +59,74 @@ class JoystickView:
 
 	func _draw() -> void:
 		var center := size * 0.5
+		# Base: soft fill + crisp outer ring.
 		draw_circle(center, radius, Color(1.0, 1.0, 1.0, 0.08))
-		draw_arc(center, radius, 0.0, TAU, 48, Color(1.0, 1.0, 1.0, 0.35), 2.0, true)
-		draw_circle(center + knob, radius * 0.42, Color(1.0, 1.0, 1.0, 0.30))
-		draw_arc(center + knob, radius * 0.42, 0.0, TAU, 32, Color(1.0, 1.0, 1.0, 0.5), 1.5, true)
+		draw_arc(center, radius, 0.0, TAU, 64, Color(1.0, 1.0, 1.0, 0.5), 2.5, true)
+		# Four direction ticks at 72% of the radius.
+		var tick := Color(1.0, 1.0, 1.0, 0.35)
+		var tick_r := radius * 0.72
+		for dir in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+			draw_line(center + dir * tick_r, center + dir * (tick_r + 6.0), tick, 2.0, true)
+		# Knob: soft shadow underneath, solid white cap on top.
+		var knob_r := radius * 0.42
+		var kpos := center + knob
+		draw_circle(kpos + Vector2(0.0, 2.0), knob_r, Color(0.0, 0.0, 0.0, 0.25))
+		draw_circle(kpos, knob_r, Color(1.0, 1.0, 1.0, 0.9))
+		if knob.length() > 2.0:
+			# Active: accent dot marks the drag direction.
+			draw_circle(kpos, radius * 0.24, Color(ACCENT, 0.9))
+		else:
+			draw_circle(kpos, radius * 0.15, Color(1.0, 1.0, 1.0, 0.35))
+
+
+# Vector glyph drawn with _draw() (no unicode arrows / emoji): always crisp
+# and tintable. Input-transparent so taps reach the parent Button.
+class GlyphIcon:
+	extends Control
+	var kind := "jump"
+	var tint := Color(1.0, 1.0, 1.0, 0.95)
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var s := minf(size.x, size.y)
+		match kind:
+			"jump":
+				# Filled triangle pointing up.
+				var h := s * 0.34
+				var pts := PackedVector2Array(
+					[
+						c + Vector2(0.0, -h),
+						c + Vector2(h * 0.9, h * 0.62),
+						c + Vector2(-h * 0.9, h * 0.62),
+					]
+				)
+				draw_colored_polygon(pts, tint)
+			"sprint":
+				# Two chevrons pointing right.
+				_chevron(c + Vector2(-s * 0.16, 0.0), s * 0.24)
+				_chevron(c + Vector2(s * 0.14, 0.0), s * 0.24)
+			"action":
+				# Circle outline with a center dot.
+				var w := maxf(2.0, s * 0.07)
+				draw_arc(c, s * 0.26, 0.0, TAU, 40, tint, w, true)
+				draw_circle(c, maxf(2.5, s * 0.08), tint)
+
+	func _chevron(origin: Vector2, h: float) -> void:
+		# ">" stroke of half-height h.
+		var w := maxf(2.0, h * 0.30)
+		var tip := origin + Vector2(h * 0.62, 0.0)
+		draw_line(origin + Vector2(-h * 0.62, -h), tip, tint, w, true)
+		draw_line(tip, origin + Vector2(-h * 0.62, h), tint, w, true)
+
+
+# Glossy highlight arc hugging the top inside edge of a round button.
+class GlassGloss:
+	extends Control
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := minf(size.x, size.y) * 0.5 - 2.0
+		draw_arc(c, r, PI * 1.12, PI * 1.88, 40, Color(1.0, 1.0, 1.0, 0.30), 2.0, true)
 
 
 func _ready() -> void:
@@ -76,10 +152,10 @@ func _ready() -> void:
 	_stick.size = Vector2(STICK_RADIUS * 2.0 + 12.0, STICK_RADIUS * 2.0 + 12.0)
 	_root.add_child(_stick)
 
-	_btn_jump = _make_button(_t("hud_jump", "Lompat", "Jump"), 72.0, true)
-	_btn_sprint = _make_button(_t("hud_sprint", "Sprint", "Sprint"), 64.0, false)
+	_btn_jump = _make_button("jump", _t("hud_jump", "Lompat", "Jump"), JUMP_SIZE)
+	_btn_sprint = _make_button("sprint", _t("hud_sprint", "Sprint", "Sprint"), SPRINT_SIZE)
 	_btn_sprint.toggle_mode = true
-	_btn_action = _make_button(_t("hud_action", "Aksi", "Action"), 60.0, false)
+	_btn_action = _make_button("action", _t("hud_action", "Aksi", "Action"), ACTION_SIZE)
 	for b in [_btn_jump, _btn_sprint, _btn_action]:
 		_root.add_child(b)
 	_btn_jump.button_down.connect(_on_jump_down)
@@ -104,10 +180,17 @@ func _t(key: String, fb_id: String, fb_en: String) -> String:
 
 
 func _apply_texts() -> void:
-	if _btn_jump != null and is_instance_valid(_btn_jump):
-		_btn_jump.text = _t("hud_jump", "Lompat", "Jump")
-		_btn_sprint.text = _t("hud_sprint", "Sprint", "Sprint")
-		_btn_action.text = _t("hud_action", "Aksi", "Action")
+	_set_caption(_btn_jump, _t("hud_jump", "Lompat", "Jump"))
+	_set_caption(_btn_sprint, _t("hud_sprint", "Sprint", "Sprint"))
+	_set_caption(_btn_action, _t("hud_action", "Aksi", "Action"))
+
+
+func _set_caption(b: Button, text: String) -> void:
+	if b == null or not is_instance_valid(b):
+		return
+	var lbl := b.get_node_or_null("Caption")
+	if lbl is Label:
+		(lbl as Label).text = text
 
 
 ## Connect this layer to the local player node. Also makes the layer visible:
@@ -254,6 +337,7 @@ func _on_sprint_toggled(on: bool) -> void:
 		Input.action_press("sprint")
 	else:
 		Input.action_release("sprint")
+	_apply_glass_style(_btn_sprint, SPRINT_SIZE, on)
 	sprint_toggled.emit(on)
 
 
@@ -269,50 +353,98 @@ func _on_action_pressed() -> void:
 # ------------------------------------------------------------------ build
 
 
-func _make_button(text: String, side: float, accent: bool) -> Button:
-	# Prefer UiKit when available (>=48dp targets, consistent styling).
-	if ResourceLoader.exists(UIKIT_PATH):
-		var uk: Variant = load(UIKIT_PATH)
-		if uk != null and uk.has_method("make_button"):
-			var made: Variant = uk.make_button(text, Vector2(side, side), accent)
-			if made is Button:
-				return made
-	# Fallback: plain translucent round button.
+## Round glass button with a vector glyph, a small caption underneath and a
+## glossy top highlight. Targets are >= 48px as required for touch input.
+func _make_button(kind: String, caption: String, side: float) -> Button:
 	var b := Button.new()
-	b.text = text
+	b.text = ""
 	b.focus_mode = Control.FOCUS_NONE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.12, 0.13, 0.18, 0.78)
-	sb.set_corner_radius_all(int(side * 0.5))
-	sb.set_border_width_all(2)
-	sb.border_color = Color(1.0, 1.0, 1.0, 0.22)
-	b.add_theme_stylebox_override("normal", sb)
-	var sbh: StyleBoxFlat = sb.duplicate()
-	sbh.bg_color = Color(0.2, 0.22, 0.3, 0.85)
-	b.add_theme_stylebox_override("hover", sbh)
-	var sbp: StyleBoxFlat = sb.duplicate()
-	sbp.bg_color = Color(0.18, 0.42, 0.85, 0.9)
-	b.add_theme_stylebox_override("pressed", sbp)
-	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	b.add_theme_font_size_override("font_size", 14)
 	b.custom_minimum_size = Vector2(side, side)
+
+	var gloss := GlassGloss.new()
+	gloss.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gloss.set_anchors_preset(Control.PRESET_FULL_RECT)
+	b.add_child(gloss)
+
+	var glyph := GlyphIcon.new()
+	glyph.kind = kind
+	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glyph.set_anchors_preset(Control.PRESET_FULL_RECT)
+	glyph.offset_left = 8.0
+	glyph.offset_top = 6.0
+	glyph.offset_right = -8.0
+	glyph.offset_bottom = -20.0
+	b.add_child(glyph)
+
+	var lbl := Label.new()
+	lbl.name = "Caption"
+	lbl.text = caption
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", 13)
+	lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 0.8))
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	lbl.offset_top = -18.0
+	lbl.offset_bottom = -4.0
+	b.add_child(lbl)
+
+	_apply_glass_style(b, side)
+	UiKit.attach_press_animation(b)
 	return b
+
+
+## Glass round styleboxes; `on` swaps the sprint toggle fill to play-green
+## (white glyph stays readable on both fills).
+func _apply_glass_style(b: Button, side: float, on := false) -> void:
+	var base := UiKit.COL_PLAY if on else GLASS_BG
+	var hover := UiKit.COL_PLAY.lightened(0.10) if on else GLASS_HOVER
+	var pressed := UiKit.COL_PLAY.darkened(0.22) if on else GLASS_PRESSED
+	b.add_theme_stylebox_override("normal", _glass_sb(base, side))
+	b.add_theme_stylebox_override("hover", _glass_sb(hover, side))
+	b.add_theme_stylebox_override("pressed", _glass_sb(pressed, side, true))
+	b.add_theme_stylebox_override("hover_pressed", _glass_sb(hover, side))
+	b.add_theme_stylebox_override("disabled", _glass_sb(Color(0.3, 0.33, 0.4, 0.5), side))
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+
+
+## Dark glass circle: 1px white border, drop shadow, compressed content
+## margins while pressed for a "pushed in" feel.
+func _glass_sb(base: Color, side: float, pressed := false) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = base
+	sb.set_corner_radius_all(int(round(side * 0.5)))
+	sb.set_border_width_all(1)
+	sb.border_color = Color(1.0, 1.0, 1.0, 0.25)
+	sb.shadow_color = Color(0.0, 0.0, 0.0, 0.35)
+	sb.shadow_size = 8
+	sb.shadow_offset = Vector2(0.0, 3.0)
+	if pressed:
+		sb.content_margin_top = 1.0
+		sb.content_margin_bottom = 1.0
+	else:
+		sb.content_margin_top = 2.0
+		sb.content_margin_bottom = 3.0
+	return sb
 
 
 func _layout() -> void:
 	if _root == null or _btn_jump == null:
 		return
 	var vs := _view_size()
-	var jump := 72.0
-	_btn_jump.custom_minimum_size = Vector2(jump, jump)
-	_btn_jump.size = Vector2(jump, jump)
-	_btn_jump.position = Vector2(vs.x - jump - 18.0, vs.y - jump - 22.0)
-	_btn_sprint.custom_minimum_size = Vector2(64, 64)
-	_btn_sprint.size = Vector2(64, 64)
-	_btn_sprint.position = Vector2(vs.x - jump - 18.0 - 64.0 - 14.0, vs.y - 64.0 - 22.0)
-	_btn_action.custom_minimum_size = Vector2(60, 60)
-	_btn_action.size = Vector2(60, 60)
-	_btn_action.position = Vector2(vs.x - 60.0 - 24.0, vs.y - jump - 22.0 - 60.0 - 14.0)
+	_btn_jump.custom_minimum_size = Vector2(JUMP_SIZE, JUMP_SIZE)
+	_btn_jump.size = Vector2(JUMP_SIZE, JUMP_SIZE)
+	_btn_jump.position = Vector2(vs.x - JUMP_SIZE - 18.0, vs.y - JUMP_SIZE - 22.0)
+	_btn_sprint.custom_minimum_size = Vector2(SPRINT_SIZE, SPRINT_SIZE)
+	_btn_sprint.size = Vector2(SPRINT_SIZE, SPRINT_SIZE)
+	_btn_sprint.position = Vector2(
+		vs.x - JUMP_SIZE - 18.0 - SPRINT_SIZE - 14.0, vs.y - SPRINT_SIZE - 22.0
+	)
+	_btn_action.custom_minimum_size = Vector2(ACTION_SIZE, ACTION_SIZE)
+	_btn_action.size = Vector2(ACTION_SIZE, ACTION_SIZE)
+	_btn_action.position = Vector2(
+		vs.x - ACTION_SIZE - 24.0, vs.y - JUMP_SIZE - 22.0 - ACTION_SIZE - 14.0
+	)
 	var stick_size := Vector2(STICK_RADIUS * 2.0 + 12.0, STICK_RADIUS * 2.0 + 12.0)
 	_stick.size = stick_size
 	_rest_stick_pos = Vector2(20.0, vs.y - stick_size.y - 20.0)

@@ -192,8 +192,8 @@ func _test_block_library() -> void:
 	fw.check("neon emissive", m_neon.emission_enabled)
 	fw.check_eq("neon warna emis", m_neon.emission, Color(0, 1, 0))
 	fw.check(
-		"plastic roughness 0.8",
-		is_equal_approx(BlockLibrary.make_material("plastic", "#ffffff").roughness, 0.8)
+		"plastic roughness 0.45 (kilau bata mainan, v0.4)",
+		is_equal_approx(BlockLibrary.make_material("plastic", "#ffffff").roughness, 0.45)
 	)
 	fw.check_eq(
 		"warna hex diterapkan",

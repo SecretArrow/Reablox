@@ -124,6 +124,17 @@ func _make_particles(
 	mat.initial_velocity_min = speed * 0.7
 	mat.initial_velocity_max = speed
 	mat.gravity = gravity
+	# Turbulensi lembut: hujan sedikit miring alami, salju melayang berputar.
+	if gravity.length() < 10.0:
+		mat.turbulence_enabled = true
+		mat.turbulence_noise_strength = 0.35
+		mat.turbulence_noise_scale = 1.6
+		mat.turbulence_noise_speed_random = 0.4
+	else:
+		mat.turbulence_enabled = true
+		mat.turbulence_noise_strength = 0.08
+		mat.turbulence_noise_scale = 0.9
+		mat.turbulence_noise_speed_random = 0.2
 	p.process_material = mat
 
 	var mesh := QuadMesh.new()

@@ -82,19 +82,37 @@ func _build() -> void:
 	_env.ambient_light_energy = 1.0
 	_env.fog_enabled = false
 	_env.fog_density = 0.0
+	# Kualitas warna: ACES memberi kontras & saturasi sinematik yang lebih kaya.
+	_env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	# Glow lembut membuat neon/matahari "berpendar" (murah di renderer mobile).
+	_env.glow_enabled = true
+	_env.glow_intensity = 0.5
+	_env.glow_strength = 1.0
+	_env.glow_bloom = 0.08
+	_env.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+	_env.glow_hdr_threshold = 1.05
 
 	var we := WorldEnvironment.new()
 	we.environment = _env
 	add_child(we)
 
+	# Matahari terlihat sebagai piringan dengan halo di langit prosedural:
+	# angle kecil = bola matahari lebih terdefinisi (default 30 terlalu membaur).
+	_sky_mat.sun_angle_max = 12.0
+	_sky_mat.sun_curve = 0.18
+
 	_sun = DirectionalLight3D.new()
 	_sun.rotation_degrees = Vector3(-55.0, 30.0, 0.0)
 	_sun.shadow_enabled = true
 	_sun.directional_shadow_max_distance = 90.0
+	# Shadow lembut (blur + blend) — tepi bayangan tidak keras.
+	_sun.directional_shadow_blend_splits = true
+	_sun.shadow_blur = 1.2
 	add_child(_sun)
 
 	if String(Settings.get_value("graphics_quality", "medium")) == "low":
 		_sun.shadow_enabled = false
+		_env.glow_enabled = false
 
 
 func _apply_time() -> void:
@@ -112,10 +130,25 @@ func _apply_time() -> void:
 		_sky_mat.sky_horizon_color = col.lightened(0.3)
 		_sky_mat.ground_horizon_color = col.lightened(0.15)
 		_sky_mat.ground_bottom_color = col.darkened(0.55)
+		# Fajar/senja: horizon di-oranye-kan (matahari terbit/tenggelam dramatis).
+		var warm_h := _horizon_warmth(hour)
+		if warm_h > 0.0:
+			var warm_col := Color("#ff9450").lerp(Color("#ffd27a"), day_factor)
+			_sky_mat.sky_horizon_color = _sky_mat.sky_horizon_color.lerp(warm_col, warm_h * 0.85)
+			_sky_mat.ground_horizon_color = _sky_mat.ground_horizon_color.lerp(
+				warm_col, warm_h * 0.7
+			)
 	var h := int(floor(hour)) % 24
 	if h != _last_hour:
 		_last_hour = h
 		hour_changed.emit(h)
+
+
+## Kekuatan warna hangat di horizon: puncak saat ~06.00 dan ~18.30.
+func _horizon_warmth(h: float) -> float:
+	var morning := 1.0 - absf(h - 6.1) / 1.6
+	var evening := 1.0 - absf(h - 18.4) / 1.7
+	return clampf(maxf(morning, evening), 0.0, 1.0)
 
 
 func _sky_color(h: float) -> Color:

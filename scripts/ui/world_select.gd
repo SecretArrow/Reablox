@@ -1,6 +1,10 @@
 extends Control
-## World Select — pilih template (10 kartu) atau dunia tersimpan,
+## World Select — discovery ala platform game modern: kartu template dengan
+## thumbnail art prosedural + nama + deskripsi, tab Template & Dunia Saya,
 ## impor dunia (.myworld) via FileDialog / folder user://imports.
+
+const UiKit := preload("res://scripts/ui/ui_kit.gd")
+const ThumbArt := preload("res://scripts/ui/thumbnail_art.gd")
 
 const GAME_SCENE := "res://scenes/game.tscn"
 const MENU_SCENE := "res://scenes/main_menu.tscn"
@@ -31,31 +35,29 @@ func _ready() -> void:
 func _build_ui() -> void:
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 16)
-	margin.add_theme_constant_override("margin_right", 16)
+	margin.add_theme_constant_override("margin_left", 20)
+	margin.add_theme_constant_override("margin_right", 20)
 	margin.add_theme_constant_override("margin_top", 12)
 	margin.add_theme_constant_override("margin_bottom", 12)
 	add_child(margin)
 	var root := VBoxContainer.new()
-	root.add_theme_constant_override("separation", 10)
+	root.add_theme_constant_override("separation", 12)
 	margin.add_child(root)
-	# Header: tombol kembali + judul
+	# Header: tombol kembali glass + judul besar.
 	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 12)
+	head.add_theme_constant_override("separation", 14)
 	root.add_child(head)
-	var back := Button.new()
-	back.text = Locale.t("common_back")
-	back.custom_minimum_size = Vector2(120, 52)
+	var back := UiKit.make_button_secondary(Locale.t("common_back"), Vector2(130, 52))
 	back.pressed.connect(_go_back)
 	head.add_child(back)
-	var title := Label.new()
-	title.text = Locale.t("ws_title")
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var title := UiKit.make_label(Locale.t("ws_title"), 34)
+	title.add_theme_color_override("font_color", Color.WHITE)
+	title.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.4))
+	title.add_theme_constant_override("shadow_offset_y", 2)
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.add_theme_font_size_override("font_size", 26)
 	head.add_child(title)
-	# Tab: Template & Dunia Saya
+	# Tab: Template & Dunia Saya.
 	var tabs := TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(tabs)
@@ -69,8 +71,8 @@ func _make_templates_tab() -> Control:
 	tab.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	var grid := GridContainer.new()
 	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 14)
-	grid.add_theme_constant_override("v_separation", 14)
+	grid.add_theme_constant_override("h_separation", 16)
+	grid.add_theme_constant_override("v_separation", 16)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tab.add_child(grid)
 	if _tpl == null:
@@ -86,45 +88,80 @@ func _make_templates_tab() -> Control:
 	return tab
 
 
+## Kartu game modern: thumbnail art di atas + nama tebal + deskripsi + badge.
 func _make_template_card(entry: Dictionary) -> Control:
 	var id := String(entry.get("id", "empty"))
-	var col := Color(String(entry.get("color", "#607d8b")))
 	var btn := Button.new()
-	btn.custom_minimum_size = Vector2(240, 156)
+	btn.custom_minimum_size = Vector2(300, 258)
+	btn.focus_mode = Control.FOCUS_NONE
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = col
-	sb.set_corner_radius_all(14)
-	sb.content_margin_left = 14.0
-	sb.content_margin_right = 14.0
-	sb.content_margin_top = 12.0
-	sb.content_margin_bottom = 12.0
+	sb.bg_color = Color(1, 1, 1, 0.06)
+	sb.set_corner_radius_all(UiKit.CORNER)
+	sb.set_border_width_all(1)
+	sb.border_color = Color(1, 1, 1, 0.14)
+	sb.shadow_color = Color(0, 0, 0, 0.32)
+	sb.shadow_size = 12
+	sb.shadow_offset = Vector2(0, 5)
+	sb.content_margin_left = 8.0
+	sb.content_margin_right = 8.0
+	sb.content_margin_top = 8.0
+	sb.content_margin_bottom = 10.0
 	btn.add_theme_stylebox_override("normal", sb)
-	var sbh := sb.duplicate() as StyleBoxFlat
-	sbh.bg_color = col.lightened(0.18)
+	var sbh: StyleBoxFlat = sb.duplicate()
+	sbh.bg_color = Color(1, 1, 1, 0.12)
+	sbh.border_color = Color(1, 1, 1, 0.30)
+	sbh.shadow_size = 16
 	btn.add_theme_stylebox_override("hover", sbh)
-	var sbp := sb.duplicate() as StyleBoxFlat
-	sbp.bg_color = col.darkened(0.25)
+	var sbp: StyleBoxFlat = sb.duplicate()
+	sbp.bg_color = Color(1, 1, 1, 0.03)
+	sbp.border_color = Color(1, 1, 1, 0.08)
 	btn.add_theme_stylebox_override("pressed", sbp)
 	btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	btn.pressed.connect(_play_template.bind(id))
-	# Label nama & deskripsi di dalam kartu (abaikan mouse agar klik tembus)
+	UiKit.attach_press_animation(btn)
+
+	# Isi kartu: thumbnail + overlay badge + nama + deskripsi.
 	var vb := VBoxContainer.new()
-	vb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 10)
-	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 8)
 	vb.add_theme_constant_override("separation", 6)
+	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	btn.add_child(vb)
-	var nm := Label.new()
-	nm.text = Locale.t(String(entry.get("name_key", id)))
-	nm.add_theme_font_size_override("font_size", 22)
+
+	var tex_holder := Control.new()
+	tex_holder.custom_minimum_size = Vector2(284, 160)
+	tex_holder.clip_contents = true
+	tex_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vb.add_child(tex_holder)
+	var tex := TextureRect.new()
+	tex.texture = ThumbArt.get_icon(id)
+	tex.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tex.stretch_mode = TextureRect.STRETCH_SCALE
+	tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tex_holder.add_child(tex)
+	# Sudut thumbnail mengikuti radius kartu (border tipis di atas thumbnail).
+	var frame := PanelContainer.new()
+	var fsb := StyleBoxFlat.new()
+	fsb.bg_color = Color(0, 0, 0, 0)
+	fsb.set_corner_radius_all(14)
+	fsb.set_border_width_all(1)
+	fsb.border_color = Color(1, 1, 1, 0.16)
+	frame.add_theme_stylebox_override("panel", fsb)
+	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tex_holder.add_child(frame)
+
+	var nm := UiKit.make_label(Locale.t(String(entry.get("name_key", id))), 21)
 	nm.add_theme_color_override("font_color", Color.WHITE)
+	nm.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
+	nm.add_theme_constant_override("shadow_offset_y", 1)
 	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vb.add_child(nm)
-	var desc := Label.new()
-	desc.text = Locale.t(String(entry.get("desc_key", id)))
-	desc.add_theme_font_size_override("font_size", 13)
-	desc.add_theme_color_override("font_color", Color(1, 1, 1, 0.88))
+	var desc := UiKit.make_label(Locale.t(String(entry.get("desc_key", id))), 13)
+	desc.add_theme_color_override("font_color", Color(1, 1, 1, 0.62))
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	desc.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	desc.custom_minimum_size = Vector2(284, 0)
 	desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vb.add_child(desc)
 	return btn
@@ -140,24 +177,21 @@ func _make_worlds_tab() -> Control:
 	tab.add_child(scroll)
 	_list_box = VBoxContainer.new()
 	_list_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_list_box.add_theme_constant_override("separation", 8)
+	_list_box.add_theme_constant_override("separation", 10)
 	scroll.add_child(_list_box)
-	# Baris impor: tombol FileDialog + keterangan
+	# Baris impor: tombol glass + keterangan.
 	var imp_row := HBoxContainer.new()
 	imp_row.add_theme_constant_override("separation", 12)
 	tab.add_child(imp_row)
-	var imp_btn := Button.new()
-	imp_btn.text = Locale.t("ws_import")
-	imp_btn.custom_minimum_size = Vector2(150, 52)
+	var imp_btn := UiKit.make_button(Locale.t("ws_import"), Vector2(170, 52))
 	imp_btn.pressed.connect(_open_import_dialog)
 	imp_row.add_child(imp_btn)
-	var hint := Label.new()
-	hint.text = Locale.t("ws_import_hint")
+	var hint := UiKit.make_label(Locale.t("ws_import_hint"), 13)
+	hint.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
 	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	hint.add_theme_font_size_override("font_size", 12)
 	imp_row.add_child(hint)
-	# Daftar file di user://imports (fallback impor)
+	# Daftar file di user://imports (fallback impor).
 	_import_box = VBoxContainer.new()
 	_import_box.add_theme_constant_override("separation", 8)
 	tab.add_child(_import_box)
@@ -176,7 +210,7 @@ func _refresh_worlds() -> void:
 	for w in worlds:
 		if w is Dictionary:
 			_list_box.add_child(_make_world_row(w))
-	# Fallback impor: daftar berkas di user://imports
+	# Fallback impor: daftar berkas di user://imports.
 	var files := DirAccess.get_files_at(Saves.IMPORTS_DIR)
 	for f in files:
 		var fname := String(f)
@@ -185,50 +219,50 @@ func _refresh_worlds() -> void:
 		_import_box.add_child(_make_import_row(fname))
 
 
+## Baris dunia tersimpan: kartu glass + thumbnail kecil + tombol aksi.
 func _make_world_row(w: Dictionary) -> Control:
-	var panel := PanelContainer.new()
+	var card := UiKit.make_card(Color(1, 1, 1, 0.05))
 	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", 10)
-	panel.add_child(hb)
+	hb.add_theme_constant_override("separation", 12)
+	card.add_child(hb)
+	var thumb := TextureRect.new()
+	thumb.texture = ThumbArt.get_icon("world")
+	thumb.custom_minimum_size = Vector2(96, 56)
+	thumb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	thumb.stretch_mode = TextureRect.STRETCH_SCALE
+	thumb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hb.add_child(thumb)
 	var info := VBoxContainer.new()
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	info.add_theme_constant_override("separation", 2)
-	var nm := Label.new()
-	nm.text = String(w.get("name", "?"))
-	nm.add_theme_font_size_override("font_size", 18)
+	var nm := UiKit.make_label(String(w.get("name", "?")), 19)
+	nm.add_theme_color_override("font_color", Color.WHITE)
 	info.add_child(nm)
-	var dt := Label.new()
-	dt.text = _fmt_time(int(w.get("modified", 0)))
-	dt.add_theme_font_size_override("font_size", 12)
-	dt.modulate = Color(1, 1, 1, 0.6)
+	var dt := UiKit.make_label(_fmt_time(int(w.get("modified", 0))), 12)
+	dt.add_theme_color_override("font_color", Color(1, 1, 1, 0.55))
 	info.add_child(dt)
 	hb.add_child(info)
-	var play := Button.new()
-	play.text = Locale.t("common_play")
-	play.custom_minimum_size = Vector2(110, 52)
+	var play := UiKit.make_button_color(Locale.t("common_play"), UiKit.COL_PLAY, Vector2(118, 52))
 	play.pressed.connect(_play_world.bind(String(w.get("path", ""))))
 	hb.add_child(play)
-	var del := Button.new()
-	del.text = Locale.t("common_delete")
-	del.custom_minimum_size = Vector2(110, 52)
+	var del := UiKit.make_button_color(
+		Locale.t("common_delete"), UiKit.COL_DANGER, Vector2(118, 52)
+	)
 	del.pressed.connect(_ask_delete.bind(String(w.get("path", ""))))
 	hb.add_child(del)
-	return panel
+	return card
 
 
 func _make_import_row(fname: String) -> Control:
-	var panel := PanelContainer.new()
+	var panel := UiKit.make_card(Color(1, 1, 1, 0.04))
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 10)
 	panel.add_child(hb)
-	var nm := Label.new()
-	nm.text = fname.trim_suffix(Saves.EXT)
+	var nm := UiKit.make_label(fname.trim_suffix(Saves.EXT), 15)
+	nm.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
 	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	nm.add_theme_font_size_override("font_size", 15)
 	hb.add_child(nm)
-	var play := Button.new()
-	play.text = Locale.t("common_play")
-	play.custom_minimum_size = Vector2(110, 52)
+	var play := UiKit.make_button_secondary(Locale.t("common_play"), Vector2(110, 46))
 	play.pressed.connect(_play_import.bind(Saves.IMPORTS_DIR + "/" + fname))
 	hb.add_child(play)
 	return panel
@@ -302,9 +336,8 @@ func _go_back() -> void:
 
 
 func _make_info_label(text: String) -> Control:
-	var l := Label.new()
-	l.text = text
-	l.modulate = Color(1, 1, 1, 0.7)
+	var l := UiKit.make_label(text, 16)
+	l.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return l
