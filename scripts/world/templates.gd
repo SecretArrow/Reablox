@@ -162,7 +162,7 @@ static func _build_racing(w: Dictionary) -> void:
 		# Garis start
 
 		# Checkpoint 4 arah mata angin
-	_box(blocks, Vector3(26, 0.6, 0), Vector3(2, 0.1, 8), "#ffffff", "neon")
+	_box(blocks, Vector3(26, 0.5, 0), Vector3(2, 0.5, 8), "#ffffff", "neon")
 	# Checkpoint 4 arah mata angin
 	for i in range(4):
 		var a := TAU * float(i) / 4.0
@@ -302,11 +302,12 @@ static func _build_horror(w: Dictionary) -> void:
 		_box(blocks, Vector3(-10, 1.5, z), Vector3(16, 3, 1), "#455a64", "plastic")
 		_box(blocks, Vector3(10, 1.5, z), Vector3(16, 3, 1), "#455a64", "plastic")
 		# 5 fuse tersebar + pintu keluar
+	# Fuse WAJIB di koridor bebas dinding (bukan di dalam AABB dinding labirin).
 	var fuse_pos := [
-		Vector3(-14, 1, -14),
-		Vector3(14, 1, -14),
-		Vector3(-14, 1, 14),
-		Vector3(14, 1, 10),
+		Vector3(-12, 1, -12),
+		Vector3(14, 1, -12),
+		Vector3(-12, 1, 14),
+		Vector3(14, 1, 12),
 		Vector3(0, 1, -14),
 	]
 	for i in range(fuse_pos.size()):
@@ -378,7 +379,7 @@ static func _build_hide_seek(w: Dictionary) -> void:
 			var sx := snappedf(rng.randf_range(3.0, 5.0), 0.5)
 			var sz := snappedf(rng.randf_range(3.0, 5.0), 0.5)
 			_box(blocks, Vector3(px, h * 0.5, pz), Vector3(sx, h, sz), _hsl_color(rng), "plastic")
-	props.append({"type": "seeker", "role": "hide_seek", "pos": _pvec(Vector3(0, 1.5, -24))})
+	props.append({"type": "seeker", "role": "hide_seek", "pos": _pvec(Vector3(0, 0.5, -24))})
 	w["settings"]["day_night"] = false
 	_set_spawn(w, Vector3(0, 2, 24))
 
@@ -396,11 +397,11 @@ static func _build_adventure(w: Dictionary) -> void:
 	var size := 32
 	var heights: Array = []
 	var paint: Array = []
-	for x in range(size):
-		for z in range(size):
-			var wx := float(x) - size * 0.5 + 0.5
-			var wz := float(z) - size * 0.5 + 0.5
-			var h := _adv_height(wx, wz)
+	# PENTING: loop z-luar & x-dalam agar indeks = z*size+x PERSIS seperti
+	# terrain.gd _rebuild & get_height_at (tile dunia menutup [0,size)).
+	for z in range(size):
+		for x in range(size):
+			var h := _terr_h(float(x), float(z))
 			heights.append(h)
 			if h < 1.0:
 				paint.append("#d7c98a")
@@ -416,21 +417,24 @@ static func _build_adventure(w: Dictionary) -> void:
 		# Peti harta di puncak tengah
 	w["terrain"] = {"size": size, "seed": 20240, "heights": heights, "paint": paint}
 	# 10 bintang tersebar mengikuti tinggi bukit
+	# Bintang pada koordinat INTEGER di dalam peta (0..31) agar cocok dengan
+	# indeks tile terrain ter-render.
 	var star_pos := [
-		Vector3(6, 0, -10),
-		Vector3(-8, 0, -4),
+		Vector3(6, 0, 22),
+		Vector3(8, 0, 12),
 		Vector3(10, 0, 2),
-		Vector3(-4, 0, 10),
-		Vector3(0, 0, -16),
-		Vector3(14, 0, 12),
-		Vector3(-14, 0, 8),
-		Vector3(4, 0, 18),
-		Vector3(-12, 0, -14),
-		Vector3(8, 0, -6),
+		Vector3(4, 0, 10),
+		Vector3(16, 0, 6),
+		Vector3(14, 0, 20),
+		Vector3(2, 0, 24),
+		Vector3(26, 0, 18),
+		Vector3(12, 0, 26),
+		Vector3(22, 0, 8),
 	]
 	for i in range(star_pos.size()):
 		var sp: Vector3 = star_pos[i]
-		sp.y = _adv_height(sp.x, sp.z) + 1.2
+		# Pakai tinggi terrain TER-RENDER (integer 0..8) agar bintang tidak melayang.
+		sp.y = _terr_h(sp.x, sp.z) + 1.0
 		props.append({"type": "star", "role": "adventure", "index": i, "pos": _pvec(sp)})
 		# Peti harta di puncak tengah
 	(
@@ -439,11 +443,11 @@ static func _build_adventure(w: Dictionary) -> void:
 			{
 				"type": "chest",
 				"role": "adventure",
-				"pos": _pvec(Vector3(0, _adv_height(0, 0) + 0.8, 0)),
+				"pos": _pvec(Vector3(16, _terr_h(16, 16) + 0.5, 16)),
 			}
 		)
 	)
-	_set_spawn(w, Vector3(2, _adv_height(2, 2) + 2.0, 2))
+	_set_spawn(w, Vector3(4, _terr_h(4, 4) + 2.0, 4))
 
 
 static func _build_tycoon(w: Dictionary) -> void:
@@ -545,6 +549,13 @@ static func _rng_for(id: String) -> RandomNumberGenerator:
 
 static func _hsl_color(rng: RandomNumberGenerator) -> String:
 	return "#" + Color.from_hsv(rng.randf(), 0.62, 0.85).to_html(false)
+
+
+static func _terr_h(wx: float, wz: float) -> float:
+	## Tinggi terrain TER-RENDER di (wx,wz): terrain.gd men-clamp heights ke
+	## integer 0..8, jadi penempatan objek harus memakai nilai yang sama agar
+	## tidak melayang / tertanam.
+	return float(clampi(int(round(_adv_height(wx, wz))), 0, 8))
 
 
 static func _adv_height(wx: float, wz: float) -> float:

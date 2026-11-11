@@ -400,10 +400,17 @@ func _test_mode_specifics() -> void:
 		fw.check_eq("adventure: paint 32x32 = 1024", (td.get("paint", []) as Array).size(), 1024)
 		var h_ok := true
 		for h in td.get("heights", []):
-			if not (h is float or h is int) or float(h) < 0.3:
+			# Kontrak baru: heights integer 0..8 (persis domain terrain.gd
+			# _load_heights) agar penempatan objek = permukaan ter-render.
+			if (
+				not (h is float or h is int)
+				or float(h) < 0.0
+				or float(h) > 8.0
+				or float(h) != floorf(float(h))
+			):
 				h_ok = false
 				break
-		fw.check("adventure: tinggi terrain >= 0.3 (clamp _adv_height)", h_ok)
+		fw.check("adventure: tinggi terrain integer 0..8 (domain terrain.gd)", h_ok)
 	fw.check_eq("adventure: 10 star", _props(adventure, "star").size(), 10)
 	fw.check_eq(
 		"adventure: index star 0..9", _ids_of(adventure, "star"), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]

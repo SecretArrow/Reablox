@@ -35,86 +35,30 @@ static func build_world(world_json: Dictionary, parent: Node3D) -> Dictionary:
 	# Terrain (flat 64x64 seed 1 bila data hilang/kosong).
 	var tdata_raw: Variant = world_json.get("terrain", {})
 	var tdata: Dictionary = {}
+	var default_terrain := false
 	if tdata_raw is Dictionary:
 		tdata = tdata_raw
 
-		# Blok.
-
-		# Props: marker posisi sederhana; logika prop milik agent lain.
-
-		# Spawn points.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Blok.
-
-		# Props: marker posisi sederhana; logika prop milik agent lain.
-
-		# Spawn points.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Blok.
-
 		# Rebuild MultiMesh chunk sekaligus (batch, sekali per world build).
 
-		# Props: marker posisi sederhana; logika prop milik agent lain.
-
-		# Spawn points.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Spawn points.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-	if tdata.is_empty():
+	default_terrain = tdata.is_empty()
+	if default_terrain:
 		var flat: Array = []
 		flat.resize(64 * 64)
 		for k in flat.size():
 			flat[k] = 0
 
-			# Blok.
-
-			# Props: marker posisi sederhana; logika prop milik agent lain.
-
-			# Spawn points.
-
-			# Angkat spawn di atas permukaan terrain bila tertanam.
 		tdata = {"size": 64, "seed": 1, "heights": flat, "paint": []}
-
-		# Blok.
-
-		# Props: marker posisi sederhana; logika prop milik agent lain.
-
-		# Spawn points.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Blok.
 
 		# Rebuild MultiMesh chunk sekaligus (batch, sekali per world build).
 
-		# Props: marker posisi sederhana; logika prop milik agent lain.
-
-		# Spawn points.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Spawn points.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
 	var terrain: Node3D = WorldTerrain.build_from(tdata)
 	root.add_child(terrain)
+	if default_terrain:
+		# Terrain default (bila template tanpa data terrain) digeser 0.25 m ke
+		# bawah agar top-nya tidak coplanar dengan ground box template (z-fight).
+		terrain.position.y = -0.25
 
-	# Blok.
 	var blocks_raw: Variant = world_json.get("blocks", [])
 	if blocks_raw is Array:
 		for bd in blocks_raw:
@@ -122,36 +66,10 @@ static func build_world(world_json: Dictionary, parent: Node3D) -> Dictionary:
 				place_block(blocks, bd)
 		# Rebuild MultiMesh chunk sekaligus (batch, sekali per world build).
 
-		# Props: marker posisi sederhana; logika prop milik agent lain.
-
-		# Spawn points.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Spawn points.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
 	var mmr := _chunk_renderer(blocks)
 	if mmr != null:
 		mmr.call("flush_all")
 
-		# Props: marker posisi sederhana; logika prop milik agent lain.
-
-		# Spawn points.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Spawn points.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
 	var props_raw: Variant = world_json.get("props", [])
 	if props_raw is Array:
 		var idx := 0
@@ -163,18 +81,8 @@ static func build_world(world_json: Dictionary, parent: Node3D) -> Dictionary:
 				marker.set_meta("prop_data", pd)
 				props.add_child(marker)
 
-				# Spawn points.
-
-				# Angkat spawn di atas permukaan terrain bila tertanam.
 			idx += 1
 
-			# Spawn points.
-
-			# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
 	var spawns: Array[Vector3] = []
 	var spl: Variant = world_json.get("spawn_points", [])
 	if spl is Array:
@@ -182,12 +90,8 @@ static func build_world(world_json: Dictionary, parent: Node3D) -> Dictionary:
 			if sp is Array and (sp as Array).size() >= 3:
 				spawns.append(to_vec3(sp))
 
-				# Angkat spawn di atas permukaan terrain bila tertanam.
-
-		# Angkat spawn di atas permukaan terrain bila tertanam.
 	if spawns.is_empty():
 		spawns.append(Vector3(0.0, 3.0, 0.0))
-		# Angkat spawn di atas permukaan terrain bila tertanam.
 	if terrain != null and terrain.has_method("get_height_at"):
 		for i in spawns.size():
 			var spv := spawns[i]
