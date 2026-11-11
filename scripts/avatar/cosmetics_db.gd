@@ -44,16 +44,27 @@ static func presets() -> Array:
 static func _ensure() -> void:
 	if _loaded:
 		return
-	_loaded = true
 	var raw: Variant = _read_json(COSMETICS_PATH)
 	if raw is Array:
 		_items = raw
 	elif raw is Dictionary:
 		_items = raw.get("items", [])
+	const VALID_SLOTS := [
+		"hat", "hair", "face", "shirt", "pants", "accessory", "wings", "back", "hand"
+	]
 	var clean: Array = []
+	var seen_ids: Dictionary = {}
 	for it in _items:
-		if it is Dictionary and it.has("id") and it.has("slot"):
-			clean.append(it)
+		if not (it is Dictionary) or not it.has("id") or not it.has("slot"):
+			continue
+		var iid := str(it.get("id", ""))
+		if iid == "" or seen_ids.has(iid):
+			continue
+		var slot := str(it.get("slot", ""))
+		if not (slot in VALID_SLOTS):
+			continue
+		seen_ids[iid] = true
+		clean.append(it)
 	_items = clean
 
 	var praw: Variant = _read_json(PRESETS_PATH)
@@ -66,6 +77,7 @@ static func _ensure() -> void:
 		if p is Dictionary and p.has("config"):
 			pclean.append(p)
 	_presets = pclean
+	_loaded = true
 
 
 static func _read_json(path: String) -> Variant:

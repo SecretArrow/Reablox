@@ -152,6 +152,8 @@ func _flatten(raw: Variant) -> Array:
 
 
 func _for_each_tile(x: float, z: float, r: float, fn: Callable) -> bool:
+	if r <= 0.0:
+		return false
 	var cx := floori(x)
 	var cz := floori(z)
 	var ri := ceili(r)
@@ -209,6 +211,12 @@ func _rebuild() -> void:
 				hn = float(heights[(z + 1) * terrain_size + x]) - SURFACE_SINK
 			if hn < h:
 				_add_quad(st, v01, v11, Vector3(x + 1.0, hn, z + 1.0), Vector3(x, hn, z + 1.0), c)
+			# Skirt tepi kiri (x == 0) menuju y=0.
+			if x == 0 and h > 0.0:
+				_add_quad(st, v00, v01, Vector3(0.0, 0.0, z + 1.0), Vector3(0.0, 0.0, z), c)
+			# Skirt tepi depan (z == 0) menuju y=0.
+			if z == 0 and h > 0.0:
+				_add_quad(st, v10, v00, Vector3(x, 0.0, 0.0), Vector3(x + 1.0, 0.0, 0.0), c)
 	var mesh := st.commit()
 	if _surface == null:
 		_surface = MeshInstance3D.new()

@@ -135,8 +135,8 @@ static func make_collision(shape: String, size: Vector3 = Vector3.ZERO) -> Shape
 					Vector3(hx, -hy, -hz),
 					Vector3(-hx, -hy, hz),
 					Vector3(hx, -hy, hz),
-					Vector3(0.0, hy, -hz),
-					Vector3(0.0, hy, hz),
+					Vector3(hx, hy, -hz),
+					Vector3(hx, hy, hz),
 				]
 			)
 			return cp

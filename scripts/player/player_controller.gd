@@ -86,8 +86,10 @@ func set_net_state(pos: Vector3, yaw: float, anim: int) -> void:
 
 
 func get_anim_state() -> int:
-	if not is_local or _dead:
-		return _net_anim if not is_local else STATE_IDLE
+	if _dead:
+		return STATE_IDLE
+	if not is_local:
+		return _net_anim
 	if not is_on_floor():
 		return STATE_JUMP
 	var sp := Vector2(velocity.x, velocity.z).length()
@@ -325,15 +327,18 @@ func _process_local(delta: float) -> void:
 
 
 func _process_remote(delta: float) -> void:
-	# Remote players: no input, keep gravity, lerp toward the net state.
+	# Remote players: input disabled; lerp position toward the net state.
+	# Gravity is only applied when there is no fresh net state, so the lerp
+	# alone drives vertical motion and there is no jitter when airborne.
 	velocity.x = 0.0
 	velocity.z = 0.0
-	if not is_on_floor():
-		velocity.y -= _gravity * delta
 	if _net_has_state:
 		var w := minf(1.0, delta * 12.0)
 		global_position = global_position.lerp(_net_pos, w)
 		rotation.y = lerp_angle(rotation.y, _net_yaw, w)
+		velocity = Vector3.ZERO
+	elif not is_on_floor():
+		velocity.y -= _gravity * delta
 	move_and_slide()
 
 

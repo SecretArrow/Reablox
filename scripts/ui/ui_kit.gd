@@ -317,7 +317,10 @@ static func make_rich_gradient(colors: Array) -> TextureRect:
 	var n := cols.size()
 	var offs := PackedFloat32Array()
 	for i in n:
-		offs.append(float(i) / float(n - 1))
+		if n <= 1:
+			offs.append(0.0)
+		else:
+			offs.append(float(i) / float(n - 1))
 	g.offsets = offs
 	var gt := GradientTexture2D.new()
 	gt.gradient = g

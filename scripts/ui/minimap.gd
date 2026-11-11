@@ -38,7 +38,7 @@ func set_range(m: float) -> void:
 func _process(delta: float) -> void:
 	_accum += delta
 	if _accum >= REDRAW_INTERVAL:
-		_accum = 0.0
+		_accum -= REDRAW_INTERVAL
 		queue_redraw()
 
 

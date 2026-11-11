@@ -291,7 +291,7 @@ func _on_scan_pressed() -> void:
 	_rooms_list.clear()
 	_rooms.clear()
 	await get_tree().process_frame
-	var rooms: Array = Net.list_lan_rooms(1.5)
+	var rooms: Array = await Net.list_lan_rooms(1.5)
 	_scan_btn.text = Locale.t("lobby_scan")
 	_scan_btn.disabled = false
 	_scanning = false

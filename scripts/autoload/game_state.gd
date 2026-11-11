@@ -427,8 +427,13 @@ func _load_progress() -> void:
 		if f != null:
 			var parsed: Variant = JSON.parse_string(f.get_as_text())
 			if typeof(parsed) == TYPE_DICTIONARY:
-				_stats = parsed.get("stats", {})
-				_achievements = parsed.get("achievements", {})
+				var pd: Dictionary = parsed
+				var s: Variant = pd.get("stats", {})
+				var a: Variant = pd.get("achievements", {})
+				if typeof(s) == TYPE_DICTIONARY:
+					_stats = s
+				if typeof(a) == TYPE_DICTIONARY:
+					_achievements = a
 
 
 func _save_progress() -> void:

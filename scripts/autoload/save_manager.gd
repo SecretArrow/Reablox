@@ -48,6 +48,11 @@ func save_world(world_name: String, data: Dictionary) -> Error:
 	data["meta"]["name"] = world_name
 	var safe := _sanitize_filename(world_name)
 	var path := "%s/%s%s" % [WORLDS_DIR, safe, EXT]
+	if FileAccess.file_exists(path):
+		var n := 2
+		while FileAccess.file_exists("%s/%s_%d%s" % [WORLDS_DIR, safe, n, EXT]):
+			n += 1
+		path = "%s/%s_%d%s" % [WORLDS_DIR, safe, n, EXT]
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		return FAILED
@@ -107,7 +112,8 @@ func import_world(source_path: String) -> String:
 
 func save_screenshot(img: Image) -> String:
 	DirAccess.make_dir_recursive_absolute(SHOTS_DIR)
-	var fname := "shot_%d.png" % Time.get_unix_time_from_system()
+	var secs := Time.get_unix_time_from_system()
+	var fname := "shot_%d_%03d.png" % [int(secs), Time.get_ticks_msec() % 1000]
 	var path := "%s/%s" % [SHOTS_DIR, fname]
 	var err := img.save_png(path)
 	if err != OK:

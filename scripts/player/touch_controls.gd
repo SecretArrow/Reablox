@@ -43,6 +43,7 @@ var _rest_stick_pos := Vector2.ZERO
 var _btn_jump: Button = null
 var _btn_sprint: Button = null
 var _btn_action: Button = null
+var _bound: Array = []  # list of (signal, callable) for current player
 
 
 # Custom-drawn joystick: soft glass base, direction ticks and a knob whose
@@ -196,21 +197,36 @@ func _set_caption(b: Button, text: String) -> void:
 ## Connect this layer to the local player node. Also makes the layer visible:
 ## it must only be on screen while a local player exists.
 func bind_player(p: Node) -> void:
+	_disconnect_player()
 	_player = p
 	visible = true
 	set_process_input(true)
 	if p.has_method("set_touch_move"):
 		move_changed.connect(p.set_touch_move)
+		_bound.append([move_changed, p.set_touch_move])
 	if p.has_method("add_look"):
 		look_delta.connect(p.add_look)
+		_bound.append([look_delta, p.add_look])
 	if p.has_method("request_jump"):
 		jump_pressed.connect(p.request_jump)
+		_bound.append([jump_pressed, p.request_jump])
 	if p.has_method("set_touch_sprint"):
 		sprint_toggled.connect(p.set_touch_sprint)
+		_bound.append([sprint_toggled, p.set_touch_sprint])
 	_layout()
 
 
+func _disconnect_player() -> void:
+	for entry in _bound:
+		var sig: Signal = entry[0]
+		var cb: Callable = entry[1]
+		if sig.is_connected(cb):
+			sig.disconnect(cb)
+	_bound.clear()
+
+
 func unbind() -> void:
+	_disconnect_player()
 	_player = null
 	visible = false
 	set_process_input(false)
@@ -284,8 +300,11 @@ func _apply_stick(offset: Vector2) -> void:
 	if _stick != null and is_instance_valid(_stick) and _stick.has_method("set_knob"):
 		_stick.set_knob(v)
 	var out := v / STICK_RADIUS
-	if out.length() < DEAD_ZONE:
+	var len := out.length()
+	if len < DEAD_ZONE:
 		out = Vector2.ZERO
+	elif len > 0.0:
+		out = out.normalized() * (len - DEAD_ZONE) / (1.0 - DEAD_ZONE)
 	move_changed.emit(out)
 
 

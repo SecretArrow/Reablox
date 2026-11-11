@@ -177,8 +177,6 @@ static func apply_item(rig: Node3D, item: Dictionary) -> void:
 			holder = rig
 		var mi := MeshInstance3D.new()
 		mi.mesh = _make_mesh(mtype, size)
-		if mtype == "sphere" or mtype == "cylinder":
-			mi.scale = size  # mesh unit (diameter/tinggi 1) -> ukuran penuh
 		mi.position = _vec3(sh.get("pos", [0, 0, 0]))
 		var col_s := str(sh.get("color", ""))
 		var col := _fallback_color(rig, pkey) if col_s == "" else _hex(col_s, Color.WHITE)
@@ -202,14 +200,14 @@ static func _make_mesh(mtype: String, size: Vector3) -> Mesh:
 	match mtype:
 		"sphere":
 			var m := SphereMesh.new()
-			m.radius = 0.5
-			m.height = 1.0
+			m.radius = minf(size.x, size.z) * 0.5
+			m.height = size.y
 			return m
 		"cylinder":
 			var c := CylinderMesh.new()
-			c.top_radius = 0.5
-			c.bottom_radius = 0.5
-			c.height = 1.0
+			c.top_radius = minf(size.x, size.z) * 0.5
+			c.bottom_radius = minf(size.x, size.z) * 0.5
+			c.height = size.y
 			return c
 		"prism":
 			var p := PrismMesh.new()
@@ -222,7 +220,7 @@ static func _make_mesh(mtype: String, size: Vector3) -> Mesh:
 
 
 static func _material(col: Color) -> StandardMaterial3D:
-	var key := col.to_html(false)
+	var key := col.to_html(true)
 	if _mat_cache.has(key):
 		return _mat_cache[key]
 	var m := StandardMaterial3D.new()

@@ -465,8 +465,8 @@ func _test_consumers() -> void:
 
 	# block_transform — matematika render MultiMesh (rotasi Y + skala size).
 	# Rotasi 90° tak pernah eksak di float (cos 90° ~ 1e-16) — bandingkan
-	# dengan toleransi, bukan kesamaan bit.
-	var t := WorldManager.block_transform(Vector3(1, 0, 0), 90.0, Vector3(2, 1, 2))
+	# dengan toleransi, bukan kesamaan bit. rot_y sekarang radian (BUG3).
+	var t := WorldManager.block_transform(Vector3(1, 0, 0), PI * 0.5, Vector3(2, 1, 2))
 	fw.check_eq("block_transform: origin = pos", t.origin, Vector3(1, 0, 0))
 	fw.check(
 		"block_transform: basis.x diputar 90° lalu diskala 2 (~1e-5)",

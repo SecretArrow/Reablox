@@ -253,7 +253,7 @@ static func place_block(blocks_root: Node3D, data: Dictionary) -> Node3D:
 		# Render: blok statis lewat MultiMesh chunk (10k+ blok), lainnya mesh.
 	body.name = id
 	body.position = to_vec3(d.get("pos", [0, 0, 0]))
-	body.rotation.y = deg_to_rad(float(d.get("rot_y", 0.0)))
+	body.rotation.y = float(d.get("rot_y", 0.0))
 	var cs := CollisionShape3D.new()
 	cs.name = "Collision"
 	cs.shape = BlockLibrary.make_collision(shape, size)
@@ -282,10 +282,24 @@ static func place_block(blocks_root: Node3D, data: Dictionary) -> Node3D:
 	return body
 
 
-## Transform MultiMesh dari posisi + rotasi Y (derajat) + skala ukuran.
-static func block_transform(pos: Vector3, rot_y_deg: float, size: Vector3) -> Transform3D:
-	var basis := Basis(Vector3.UP, deg_to_rad(rot_y_deg)).scaled(size)
+## Transform MultiMesh dari posisi + rotasi Y (radian) + skala ukuran.
+static func block_transform(pos: Vector3, rot_y_rad: float, size: Vector3) -> Transform3D:
+	var basis := Basis(Vector3.UP, rot_y_rad).scaled(size)
 	return Transform3D(basis, pos)
+
+
+## Cari node blok berdasarkan id di bawah Blocks root (null bila tak ditemukan).
+static func find_block_by_id(blocks_root: Node3D, id: String) -> Node3D:
+	if blocks_root == null or id == "":
+		return null
+	for child in blocks_root.get_children():
+		var node := child as Node3D
+		if node == null or not node.has_meta("block_data"):
+			continue
+		var bd: Variant = node.get_meta("block_data", {})
+		if bd is Dictionary and String((bd as Dictionary).get("id", "")) == id:
+			return node
+	return null
 
 
 ## Terapkan update blok lokal/remote: place (replace bila id sama) atau remove.
@@ -463,7 +477,7 @@ static func _find_block(blocks_root: Node3D, id: String) -> Node3D:
 		return null
 	for child in blocks_root.get_children():
 		var node := child as Node3D
-		if node == null:
+		if node == null or node.is_queued_for_deletion():
 			continue
 		var meta: Dictionary = node.get_meta("block_data", {})
 		if String(meta.get("id", "")) == id:

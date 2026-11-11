@@ -85,7 +85,10 @@ static func node_tris(node: Node) -> int:
 	if node is MultiMeshInstance3D:
 		var mm := (node as MultiMeshInstance3D).multimesh
 		if mm != null and mm.mesh != null:
-			return mesh_tris(mm.mesh) * mm.instance_count
+			var ic := (
+				mm.visible_instance_count if mm.visible_instance_count > 0 else mm.instance_count
+			)
+			return mesh_tris(mm.mesh) * ic
 		return 0
 	if node is MeshInstance3D:
 		return mesh_tris((node as MeshInstance3D).mesh)
@@ -167,7 +170,13 @@ func scene_level(tris: int) -> int:
 func register_chunks(mm: Node) -> void:
 	if not _chunks.has(mm):
 		_chunks.append(mm)
+		if mm is Node:
+			(mm as Node).tree_exited.connect(_on_chunk_freed.bind(mm))
 
 
 func unregister_chunks(mm: Node) -> void:
+	_chunks.erase(mm)
+
+
+func _on_chunk_freed(mm: Node) -> void:
 	_chunks.erase(mm)

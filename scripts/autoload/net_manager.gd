@@ -92,7 +92,7 @@ func send_player_state(pos: Vector3, yaw: float, anim: int) -> void:
 
 
 func list_lan_rooms(timeout: float = 1.5) -> Array:
-	var r: Variant = _call("list_lan_rooms", [timeout], [])
+	var r: Variant = await _call("list_lan_rooms", [timeout], [])
 	return r if r is Array else []
 
 

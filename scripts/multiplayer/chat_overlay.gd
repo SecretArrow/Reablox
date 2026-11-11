@@ -90,6 +90,10 @@ func _build_ui() -> void:
 		btn.custom_minimum_size = Vector2(76, BTN_MIN_HEIGHT)
 		btn.pressed.connect(_on_emote_pressed.bind(emote))
 		_emote_grid.add_child(btn)
+	# BUG5: hide chat panel by default so HUD is not covered until toggle().
+	_panel.visible = false
+	# BUG6: hide emote grid by default so first open_emotes() shows it.
+	_emote_grid.visible = false
 
 
 # ----------------------------------------------------------------- API

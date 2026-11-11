@@ -342,15 +342,15 @@ func _test_place_rotate_anchor() -> void:
 	_bm._edit_block(node, "rotate")
 	fw.check("rotasi +90 derajat (PI/2)", is_equal_approx(node.rotation.y, PI * 0.5))
 	fw.check(
-		"meta rot_y 90 (toleransi float32)",
+		"meta rot_y PI/2 radian (toleransi float32)",
 		is_equal_approx(
-			float((node.get_meta("block_data", {}) as Dictionary).get("rot_y", 0.0)), 90.0
+			float((node.get_meta("block_data", {}) as Dictionary).get("rot_y", 0.0)), PI * 0.5
 		)
 	)
 	fw.check_eq("sinyal rotate terkirim", _sig_count, 2)
 	fw.check(
-		"data sinyal rot_y 90 (toleransi float32)",
-		is_equal_approx(float(_sig_last_data.get("rot_y", 0.0)), 90.0)
+		"data sinyal rot_y PI/2 radian (toleransi float32)",
+		is_equal_approx(float(_sig_last_data.get("rot_y", 0.0)), PI * 0.5)
 	)
 
 	# Anchor toggle: blok diganti node baru (id sama), jenis body berubah.
@@ -415,12 +415,26 @@ func _test_remove_undo_redo() -> void:
 	_bm.undo()
 	_bm.undo()
 	await get_tree().process_frame
-	fw.check_eq("undo ganda: Blocks kosong", _block_count(), 0)
+	# BUG4: rotate/anchor kini masuk undo stack. Setelah undo e7 (place C) dan
+	# e4 (anchor toggle), block A masih ada (anchored=false). Butuh 3 undo
+	# tambahan untuk undo e3 (anchor), e2 (rotate), e1 (place A).
+	fw.check_eq("undo 2 langkah: 1 blok tersisa (anchor undone)", _block_count(), 1)
+	_bm.undo()
+	_bm.undo()
+	_bm.undo()
+	await get_tree().process_frame
+	fw.check_eq("undo semua: Blocks kosong", _block_count(), 0)
 	_bm.undo()
 	fw.check_eq("undo stack kosong -> no-op", _block_count(), 0)
 	_bm.redo()
 	_bm.redo()
-	fw.check_eq("redo mengembalikan 2 blok", _block_count(), 2)
+	_bm.redo()
+	_bm.redo()
+	_bm.redo()
+	fw.check_eq("redo 5 langkah mengembalikan 2 blok", _block_count(), 2)
+	_bm.undo()
+	_bm.undo()
+	_bm.undo()
 	_bm.undo()
 	_bm.undo()
 	await get_tree().process_frame
@@ -442,16 +456,18 @@ func _test_undo_limit() -> void:
 func _test_block_limit() -> void:
 	fw.section("BuildManager: batas MAX_BLOCKS")
 	fw.check_eq("MAX_BLOCKS 12000", BuildManager.MAX_BLOCKS, 12000)
-	# Penuhi Blocks hingga tepat batas dengan anak dummy (node tanpa meta).
+	# Penuhi Blocks hingga tepat batas dengan anak dummy (meta block_data).
+	# _count_blocks menghitung hanya anak dengan meta block_data (BUG2).
 	var dummies: Array = []
-	while _blocks_root.get_child_count() < BuildManager.MAX_BLOCKS:
+	while _block_count() < BuildManager.MAX_BLOCKS:
 		var d := Node3D.new()
 		d.name = "Dummy%d" % dummies.size()
+		d.set_meta("block_data", {"id": "dummy%d" % dummies.size()})
 		_blocks_root.add_child(d)
 		dummies.append(d)
 
 		# Satu slot longgar -> place diterima lagi.
-	fw.check_eq("Blocks penuh 12000 anak", _blocks_root.get_child_count(), BuildManager.MAX_BLOCKS)
+	fw.check_eq("Blocks penuh 12000 blok (meta)", _block_count(), BuildManager.MAX_BLOCKS)
 	var blocks_before := _block_count()
 	var sig_before := _sig_count
 	_bm._do_place({"position": Vector3(3.0, 0.0, 3.0), "normal": Vector3.UP})
@@ -463,7 +479,7 @@ func _test_block_limit() -> void:
 	dummies.pop_back()
 	await get_tree().process_frame
 	_bm._do_place({"position": Vector3(3.0, 0.0, 3.0), "normal": Vector3.UP})
-	fw.check_eq("place di bawah batas: diterima", _block_count(), blocks_before + 1)
+	fw.check_eq("place di bawah batas: diterima", _block_count(), blocks_before)
 	fw.check_eq("sinyal place terkirim", _sig_count, sig_before + 1)
 
 	for d in dummies:

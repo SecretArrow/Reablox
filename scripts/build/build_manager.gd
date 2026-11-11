@@ -37,6 +37,7 @@ var _toast_scr: GDScript = null
 var _blocks_cache: Node3D = null
 var _id_base := 0
 var _id_seq := 0
+var _id_seeded := false
 var _last_action_ms := 0
 
 
@@ -47,6 +48,26 @@ func _ready() -> void:
 		_toast_scr = load(TOAST_PATH) as GDScript
 	_id_base = Time.get_ticks_msec()
 	_make_ghost()
+
+
+## Seed _id_seq past the max numeric suffix in existing block IDs,
+## so new placements never collide with saved block IDs.
+func _seed_id_seq_from_blocks(root: Node3D) -> void:
+	_id_seeded = true
+	if root == null:
+		return
+	var max_suffix := 0
+	for c in root.get_children():
+		var n := c as Node3D
+		if n == null:
+			continue
+		var bd: Variant = n.get_meta("block_data", {})
+		if not (bd is Dictionary):
+			continue
+		var bid := String((bd as Dictionary).get("id", ""))
+		if bid.begins_with("b") and bid.substr(1).is_valid_int():
+			max_suffix = max(max_suffix, int(bid.substr(1)))
+	_id_seq = max(_id_seq, max_suffix)
 
 
 func activate(on: bool) -> void:
@@ -145,7 +166,9 @@ func _do_place(hit: Dictionary) -> void:
 	var root := _blocks_root()
 	if root == null or _wm == null:
 		return
-	if root.get_child_count() >= MAX_BLOCKS:
+	if not _id_seeded:
+		_seed_id_seq_from_blocks(root)
+	if _count_blocks(root) >= MAX_BLOCKS:
 		_toast_tr("build_limit", "Batas blok tercapai (%d)" % MAX_BLOCKS)
 		return
 	var size := BlockLibrary.default_size(_shape)
@@ -185,16 +208,25 @@ func _edit_block(collider: Object, op: String) -> void:
 		_push_history({"data": data, "removed": true})
 		block_changed.emit(data, true)
 	elif op == "rotate":
+		var prev_snap := data.duplicate(true)
 		node.rotation.y += PI * 0.5
-		data["rot_y"] = wrapf(rad_to_deg(node.rotation.y), 0.0, 360.0)
+		data["rot_y"] = wrapf(node.rotation.y, 0.0, TAU)
 		if _wm != null and root != null:
 			_wm.call("sync_block_transform", root, node)
+		_push_history(
+			{"data": data.duplicate(true), "prev": prev_snap, "removed": false, "op": "rotate"}
+		)
 		block_changed.emit(data, false)
 	elif _wm != null:
+		var prev_anch: bool = bool(data.get("anchored", true))
+		var prev_snap := data.duplicate(true)
 		data = data.duplicate(true)
-		data["anchored"] = not bool(data.get("anchored", true))
+		data["anchored"] = not prev_anch
 		if root != null:
 			_wm.call("apply_block_update", root, data, false)
+		_push_history(
+			{"data": data.duplicate(true), "prev": prev_snap, "removed": false, "op": "anchor"}
+		)
 		block_changed.emit(data, false)
 
 
@@ -255,16 +287,43 @@ func _step_history(from_stack: Array, to_stack: Array, undoing: bool) -> void:
 	var root := _blocks_root()
 	if root == null:
 		return
-	if bool(entry.get("removed", false)) != undoing:
-		var id := String(data.get("id", ""))
+	if entry.has("prev"):
+		var prev: Dictionary = entry.get("prev", {})
+		# Only revert if the block still exists; if a place-undo already removed
+		# it, applying prev would re-create it (wrong — the rotate/anchor op
+		# effectively never happened once the block is gone).
+		var rev_id := String(prev.get("id", ""))
+		var rev_target: Node3D = null
 		for child in root.get_children():
 			var n := child as Node3D
-			if n != null and String(n.get_meta("block_data", {}).get("id", "")) == id:
-				if _wm != null:
-					_wm.call("remove_block", root, n)
-				else:
-					n.queue_free()
+			if n == null or n.is_queued_for_deletion():
+				continue
+			var bd: Variant = n.get_meta("block_data", {})
+			if bd is Dictionary and String((bd as Dictionary).get("id", "")) == rev_id:
+				rev_target = n
 				break
+		if rev_target != null and _wm != null:
+			var rev_data: Dictionary = prev if undoing else data
+			_wm.call("apply_block_update", root, rev_data, false)
+			block_changed.emit(rev_data, false)
+		return
+	if bool(entry.get("removed", false)) != undoing:
+		var id := String(data.get("id", ""))
+		var target: Node3D = null
+		for child in root.get_children():
+			var n := child as Node3D
+			if n == null or n.is_queued_for_deletion():
+				continue
+			var bd: Variant = n.get_meta("block_data", {})
+			if bd is Dictionary and String((bd as Dictionary).get("id", "")) == id:
+				target = n
+				break
+		if target == null:
+			return
+		if _wm != null:
+			_wm.call("remove_block", root, target)
+		else:
+			target.queue_free()
 		block_changed.emit(data, true)
 	elif _wm != null:
 		_wm.call("place_block", root, data)
@@ -321,6 +380,18 @@ func _blocks_root() -> Node3D:
 		if tree != null and tree.current_scene != null:
 			_blocks_cache = tree.current_scene.find_child("Blocks", true, false) as Node3D
 	return _blocks_cache
+
+
+## Hitung node blok aktual (punya meta block_data) — bukan chunk count.
+func _count_blocks(root: Node3D) -> int:
+	if root == null:
+		return 0
+	var n := 0
+	for c in root.get_children():
+		var n3 := c as Node3D
+		if n3 != null and n3.has_meta("block_data"):
+			n += 1
+	return n
 
 
 func _block_data(node: Object) -> Dictionary:

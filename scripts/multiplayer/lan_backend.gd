@@ -255,7 +255,7 @@ func list_lan_rooms(timeout: float = 1.5) -> Array:
 					}
 				)
 			)
-		OS.delay_msec(50)
+		await get_tree().create_timer(0.05).timeout
 	udp.close()
 	return out
 

@@ -146,6 +146,7 @@ func _build_bottom() -> void:
 	tools.add_child(_btn(Locale.t("terrain_lower"), _call_bm.bind("terrain_lower", [])))
 	tools.add_child(_btn(Locale.t("terrain_flatten"), _call_bm.bind("terrain_flatten", [])))
 	_paint_opt = _opt(_paints(), Callable(), 110.0)
+	_paint_opt.select(0)
 	tools.add_child(_paint_opt)
 	tools.add_child(_btn(Locale.t("terrain_paint"), _on_paint))
 	var sel := _row(col, BTN.y + 8.0)
@@ -209,7 +210,7 @@ func _on_tool(tool_name: String) -> void:
 func _on_anchor() -> void:
 	var on := _anchor_btn != null and _anchor_btn.button_pressed
 	if _bm != null and _bm.has_method("set_anchored"):
-		_bm.call("set_anchored", [on])
+		_bm.call("set_anchored", on)
 	else:
 		_call_bm("set_tool", ["anchor" if on else "place"])
 

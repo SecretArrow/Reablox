@@ -194,11 +194,13 @@ func _run_command(cmd: String, args_raw: String, vars: Dictionary) -> String:
 ## Evaluasi satu token: string terkutip, literal #hex, atau ekspresi matematis.
 func _eval(text: String, vars: Dictionary) -> Variant:
 	var t := text.strip_edges()
-	if (
-		t.length() >= 2
-		and ((t.begins_with('"') and t.ends_with('"')) or (t.begins_with("'") and t.ends_with("'")))
-	):
-		return t.substr(1, t.length() - 2)
+	if t.length() >= 2:
+		var first := t[0]
+		var last_ch := t[t.length() - 1]
+		if (first == '"' or first == "'") and first == last_ch:
+			var inner := t.substr(1, t.length() - 2)
+			if not (inner.find('"') >= 0 or inner.find("'") >= 0):
+				return inner
 
 		# EN: "self" is mapped to "selfv" to avoid parser keyword clashes.
 	if t.begins_with("#"):
@@ -236,13 +238,6 @@ func _apply_color(hex: String) -> void:
 
 func _valid() -> bool:
 	return _target != null and is_instance_valid(_target)
-
-
-func _find_mesh(root: Node) -> MeshInstance3D:
-	if root is MeshInstance3D:
-		return root
-	var found := root.find_children("*", "MeshInstance3D", true, false)
-	return found[0] as MeshInstance3D if not found.is_empty() else null
 
 
 func _btn(text: String, cb: Callable) -> Button:

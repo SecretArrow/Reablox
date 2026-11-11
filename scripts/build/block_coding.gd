@@ -181,8 +181,8 @@ func _edit_item(dir: int, remove: bool) -> void:
 		var e: Dictionary = _program[i]
 		_program.remove_at(i)
 		_program.insert(i + dir, e)
+		_refresh_list()
 		_list.select(i + dir)
-	_refresh_list()
 
 
 func _refresh_list() -> void:
@@ -249,11 +249,11 @@ func _exec(e: Dictionary) -> void:
 		"turn_right":
 			_target.rotate_y(-PI * 0.5)
 			await t.create_timer(STEP_DELAY).timeout
-		"jump":  # EN: small hop: +0.6 up, then back down.
-			_target.translate(Vector3(0, 0.6, 0))
+		"jump":  # EN: small hop: +0.6 up, then back down (world-space).
+			_target.global_position += Vector3.UP * 0.6
 			await t.create_timer(0.3).timeout
 			if _valid():
-				_target.translate(Vector3(0, -0.6, 0))
+				_target.global_position -= Vector3.UP * 0.6
 		"wait":
 			var secs := minf(float(arg) if arg.is_valid_float() else 1.0, WAIT_MAX)
 			await t.create_timer(maxf(secs, 0.05)).timeout
@@ -322,13 +322,6 @@ func _say(text: String) -> void:
 
 func _valid() -> bool:
 	return _target != null and is_instance_valid(_target)
-
-
-func _find_mesh(root: Node) -> MeshInstance3D:
-	if root is MeshInstance3D:
-		return root
-	var found := root.find_children("*", "MeshInstance3D", true, false)
-	return found[0] as MeshInstance3D if not found.is_empty() else null
 
 
 func _toast(msg: String) -> void:
