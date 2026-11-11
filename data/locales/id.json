@@ -71,6 +71,7 @@
   "error_not_impl": "Fitur ini datang di update berikutnya.",
   "kart_enter": "Tekan Aksi untuk mengemudi",
   "kicked_by_host": "Kamu dikeluarkan oleh host.",
+  "kunci": "Kunci",
   "lobby_enter_ip": "Masukkan IP Host",
   "lobby_host": "Buat Room",
   "lobby_join": "Gabung Room",
@@ -243,5 +244,7 @@
   "ws_import_hint": "Pilih file .myworld, atau salin ke folder user://imports.",
   "ws_my_worlds": "Dunia Saya",
   "ws_templates": "Template",
-  "ws_title": "Pilih Dunia"
+  "ws_title": "Pilih Dunia",
+  "zz_missing_probe": "Zz missing probe",
+  "zz_no_such_key_probe": "Zz no such key probe"
 }

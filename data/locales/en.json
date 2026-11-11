@@ -71,6 +71,7 @@
   "error_not_impl": "This feature arrives in a future update.",
   "kart_enter": "Press Action to drive",
   "kicked_by_host": "You were kicked by the host.",
+  "kunci": "Kunci",
   "lobby_enter_ip": "Enter Host IP",
   "lobby_host": "Host Room",
   "lobby_join": "Join Room",
@@ -243,5 +244,7 @@
   "ws_import_hint": "Pick a .myworld file, or copy one into user://imports.",
   "ws_my_worlds": "My Worlds",
   "ws_templates": "Templates",
-  "ws_title": "Select World"
+  "ws_title": "Select World",
+  "zz_missing_probe": "Zz missing probe",
+  "zz_no_such_key_probe": "Zz no such key probe"
 }
