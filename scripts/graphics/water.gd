@@ -4,7 +4,6 @@ extends MeshInstance3D
 ## Spek: docs/rea/graphics.md §3. Visual saja; Area3D renang ditangani
 ## modul world.
 
-
 const WATER_COLOR := Color(0.07, 0.56, 0.56, 0.55)
 
 const SHADER_CODE := """
@@ -31,7 +30,6 @@ void fragment() {
     EMISSION = albedo_color.rgb * 0.03;
 }
 """
-
 
 var _mat: ShaderMaterial
 var _time := 0.0
@@ -62,10 +60,13 @@ func _process(delta: float) -> void:
 
 ## Tinggi ombak (studs) — murni, deterministik, periodik 4*PI detik.
 static func wave_height(x: float, z: float, t: float, strength := 0.15) -> float:
-	return strength * (
-		sin(0.35 * x + 1.0 * t)
-		+ sin(0.28 * z + 0.5 * t + 1.7)
-		+ 0.5 * sin(0.9 * (x + z) + 1.5 * t)
+	return (
+		strength
+		* (
+			sin(0.35 * x + 1.0 * t)
+			+ sin(0.28 * z + 0.5 * t + 1.7)
+			+ 0.5 * sin(0.9 * (x + z) + 1.5 * t)
+		)
 	)
 
 
