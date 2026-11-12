@@ -16,7 +16,7 @@ func push(screen: Control) -> void:
 	if top != null:
 		top.visible = false
 	add_child(screen)
-	screen.set_anchors_preset(Control.PRESET_FULL_RECT)
+	screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	screen.visible = true
 	_screens.append(screen)
 

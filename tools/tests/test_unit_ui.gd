@@ -30,6 +30,7 @@ func _run_tests() -> void:
 	Locale.set_locale("id")
 	_test_ui_theme()
 	_test_screen_stack()
+	await _test_layout_anchors()
 	_test_main_menu()
 	_test_settings_screen()
 	_test_avatar_editor()
@@ -132,7 +133,12 @@ func _test_main_menu() -> void:
 	var obby := _find_button(menu._stack.current(), "Pulau Obby")
 	fw.check_not_null("kembali ke layar dunia", obby)
 	if obby != null:
+		var tree := get_tree()
 		obby.emit_signal("pressed")
+		# _start_world memanggil change_scene yang melepas scene test dari
+		# tree; pasang kembali agar sisa suite tetap berjalan dan bisa quit.
+		if not is_inside_tree():
+			tree.root.add_child(self)
 	fw.check_eq("dunia terpilih", menu.get_selected_world(), "Pulau Obby")
 	fw.check_eq("GameState.current_world ter-reset", GameState.current_world, "Pulau Obby")
 	fw.check("scene game tersedia (tanpa navigasi)", ResourceLoader.exists(SceneLoader.GAME_SCENE))
@@ -200,6 +206,58 @@ func _test_avatar_editor() -> void:
 	fw.check_eq("sinyal saved ter-emit", _saved_count, 1)
 	fw.check_eq("payload saved = config terkini", _last_saved, editor.get_config())
 	editor.queue_free()
+
+
+# --- LayoutAnchors (regresi) --------------------------------------------------------
+
+
+func _test_layout_anchors() -> void:
+	fw.section("LayoutAnchors")
+	await get_tree().process_frame
+	var ref := Control.new()
+	ref.name = "RefFullRect"
+	ref.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_tree().root.add_child(ref)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var target: Vector2 = ref.size
+	fw.check_gt("kalibrasi referensi lebar > 0", target.x, 0.0)
+	fw.check_gt("kalibrasi referensi tinggi > 0", target.y, 0.0)
+	var packed := load(MENU_SCENE) as PackedScene
+	var menu: Control = null
+	if packed != null:
+		menu = packed.instantiate() as Control
+	await _settled_check("MainMenu memenuhi rect root", menu, target)
+	await _settled_check("SettingsScreen memenuhi rect root", SettingsScreenLib.new(), target)
+	await _settled_check("Hud memenuhi rect root", Hud.new(), target)
+	await _settled_check("ChatOverlay memenuhi rect root", ChatOverlay.new(), target)
+	await _settled_check("EscapeMenu memenuhi rect root", EscapeMenu.new(), target)
+	await _settled_check("TouchControls memenuhi rect root", TouchControls.new(), target)
+	var editor := AvatarEditorScreenLib.new()
+	await _settled_check("AvatarEditorScreen memenuhi rect root", editor, target)
+	var stack := ScreenStackLib.new()
+	stack.name = "RefStack"
+	stack.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_tree().root.add_child(stack)
+	var pushed := Control.new()
+	stack.push(pushed)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	fw.check_eq("layar ScreenStack.push memenuhi stack", pushed.size, stack.size)
+	stack.queue_free()
+	ref.queue_free()
+
+
+## Tambahkan control ke root, tunggu layout settle, bandingkan ukurannya.
+func _settled_check(desc: String, control: Control, target: Vector2) -> void:
+	if control == null:
+		fw.check(desc, false)
+		return
+	get_tree().root.add_child(control)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	fw.check_eq(desc, control.size, target)
+	control.queue_free()
 
 
 # --- Helper ----------------------------------------------------------------------------------

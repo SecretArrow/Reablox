@@ -23,3 +23,6 @@ user_imports/
 tools/apk-tester/artifacts*/
 tools/apk-tester/gate/
 tools/apk-tester/matrix.json
+
+# Hasil render screenshot lokal (CI mengunggah sebagai artifact)
+shots/

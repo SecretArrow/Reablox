@@ -27,7 +27,7 @@ var _part_options: Dictionary = {}
 
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	if _config.is_empty():
 		_config = AvatarConfigLib.default_config()
 	_build_ui()
