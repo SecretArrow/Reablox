@@ -338,6 +338,8 @@ jobs:
           curl -fsSL -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip
           unzip -o /tmp/godot.zip -d /opt/godot
           chmod +x /opt/godot/Godot_v4.4.1-stable_linux.x86_64
+      - name: Import aset proyek (headless)
+        run: /opt/godot/Godot_v4.4.1-stable_linux.x86_64 --headless --import --path .
       - name: Render 5 pratinjau 1080p (menu, kota, build, obby, avatar)
         run: |
           mkdir -p shots
