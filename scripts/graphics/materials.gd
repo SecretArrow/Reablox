@@ -3,7 +3,6 @@ extends RefCounted
 ## MaterialsLib — pabrik StandardMaterial3D dengan 22 material paritas Roblox.
 ## Spek: docs/rea/graphics.md §2. Semua fungsi static, aman headless.
 
-
 ## kind -> [tint, roughness, metallic, emission_energy, alpha]
 const _PROPS := {
 	"plastic": [Color(1.0, 1.0, 1.0), 0.55, 0.0, 0.0, 1.0],
