@@ -2,7 +2,8 @@ extends Node
 ## Locale — i18n minimal dari data/locales/{id,en}.json.
 ##
 ## Kunci string didefinisikan bertahap oleh modul UI; missing key mengembalikan
-## fallback (atau kunci itu sendiri) agar tidak pernah crash.
+## fallback (atau kunci itu sendiri) agar tidak pernah crash. key_count() dan
+## missing_keys() dipakai suite test untuk memverifikasi kelengkapan kamus.
 
 const LOCALES := ["id", "en"]
 const DEFAULT_LOCALE := "id"
@@ -26,6 +27,7 @@ func _load(code: String) -> void:
 		push_warning("File locale tidak ditemukan: %s" % path)
 		return
 	var parsed = JSON.parse_string(f.get_as_text())
+	f.close()
 	if parsed is Dictionary:
 		_strings = parsed
 	else:
@@ -40,7 +42,7 @@ func tr_key(key: String, fallback := "") -> String:
 
 func set_locale(code: String) -> void:
 	_load(code)
-	Settings.set_locale(code)
+	Settings.set_locale(_code)
 	GameEvents.settings_changed.emit()
 
 
@@ -50,3 +52,18 @@ func get_locale() -> String:
 
 func available() -> Array:
 	return LOCALES.duplicate()
+
+
+## Jumlah kunci terjemahan yang termuat untuk locale aktif.
+func key_count() -> int:
+	return _strings.size()
+
+
+## Kembalikan subset dari `needed` yang belum ada di kamus locale aktif.
+func missing_keys(needed: Array) -> Array[String]:
+	var out: Array[String] = []
+	for key in needed:
+		var k := str(key)
+		if not _strings.has(k):
+			out.append(k)
+	return out
