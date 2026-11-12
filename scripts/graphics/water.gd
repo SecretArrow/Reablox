@@ -7,7 +7,7 @@ extends MeshInstance3D
 
 const WATER_COLOR := Color(0.07, 0.56, 0.56, 0.55)
 
-const SHADER_CODE := "
+const SHADER_CODE := """
 shader_type spatial;
 render_mode blend_mix, depth_draw_always, cull_back;
 
@@ -16,21 +16,21 @@ uniform float wave_strength = 0.15;
 uniform float wave_time = 0.0;
 
 void vertex() {
-	VERTEX.y += wave_strength * (
-		sin(0.35 * VERTEX.x + 1.0 * wave_time)
-		+ sin(0.28 * VERTEX.z + 0.5 * wave_time + 1.7)
-		+ 0.5 * sin(0.9 * (VERTEX.x + VERTEX.z) + 1.5 * wave_time)
-	);
+    VERTEX.y += wave_strength * (
+        sin(0.35 * VERTEX.x + 1.0 * wave_time)
+        + sin(0.28 * VERTEX.z + 0.5 * wave_time + 1.7)
+        + 0.5 * sin(0.9 * (VERTEX.x + VERTEX.z) + 1.5 * wave_time)
+    );
 }
 
 void fragment() {
-	ALBEDO = albedo_color.rgb;
-	ALPHA = albedo_color.a;
-	ROUGHNESS = 0.05;
-	METALLIC = 0.6;
-	EMISSION = albedo_color.rgb * 0.03;
+    ALBEDO = albedo_color.rgb;
+    ALPHA = albedo_color.a;
+    ROUGHNESS = 0.05;
+    METALLIC = 0.6;
+    EMISSION = albedo_color.rgb * 0.03;
 }
-"
+"""
 
 
 var _mat: ShaderMaterial
