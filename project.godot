@@ -12,8 +12,8 @@ config_version=5
 
 config/name="Reablox"
 config/description="Sandbox 3D gratis bergaya blocky: bangun, main, dan berbagi dunia. Offline & multiplayer lokal. 100% gratis tanpa iklan."
-config/version="0.4.0"
-run/main_scene="res://scenes/main_menu.tscn"
+config/version="0.6.0"
+run/main_scene="res://scenes/boot/boot.tscn"
 config/features=PackedStringArray("4.4", "Mobile")
 boot_splash/bg_color=Color(0.07, 0.08, 0.12, 1)
 boot_splash/show_image=false
@@ -21,12 +21,15 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-Locale="*res://scripts/autoload/locale_manager.gd"
-Settings="*res://scripts/autoload/settings_manager.gd"
-GameState="*res://scripts/autoload/game_state.gd"
-Saves="*res://scripts/autoload/save_manager.gd"
-Net="*res://scripts/autoload/net_manager.gd"
-PolyBudget="*res://scripts/autoload/poly_budget.gd"
+GameConfig="*res://scripts/core/game_config.gd"
+GameEvents="*res://scripts/core/game_events.gd"
+Settings="*res://scripts/core/settings_mgr.gd"
+Locale="*res://scripts/core/locale_manager.gd"
+Audio="*res://scripts/core/audio_mgr.gd"
+Saves="*res://scripts/core/save_mgr.gd"
+GameState="*res://scripts/core/game_state.gd"
+SceneLoader="*res://scripts/core/scene_loader.gd"
+Net="*res://scripts/multiplayer/net_manager.gd"
 
 [display]
 
@@ -36,9 +39,20 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=4
 
+[layer_names]
+
+3d_physics/layer_1="world"
+3d_physics/layer_2="player"
+3d_physics/layer_3="parts"
+3d_physics/layer_4="npc"
+3d_physics/layer_5="water"
+3d_physics/layer_6="pickup"
+3d_physics/layer_7="projectile"
+
 [physics]
 
-3d/default_gravity=12.0
+; Skala dunia baru: 1 unit = 1 stud (paritas Roblox).
+3d/default_gravity=196.2
 
 [rendering]
 

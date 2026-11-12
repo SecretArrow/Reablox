@@ -1,422 +1,300 @@
-extends Node3D
-## BuildManager — mode bangun: raycast tap dari kamera (pusat layar / mouse /
-## touch), ghost transparan snap grid 0.5, place/remove/rotate/anchor, ops
-## terrain, undo/redo 50 langkah, limit 12000 blok (MultiMesh chunk), statistik
-## & achievement. Sinyal block_changed(data, removed) dipakai game.gd untuk
-## sync multiplayer.
+class_name BuildManager
+extends Node
+## BuildManager — penempatan/modifikasi part ala Roblox Studio dengan
+## undo/redo, kuota part, dan serialisasi dunia. Spek: docs/contracts.md §10.
 
-signal block_changed(data: Dictionary, removed: bool)
-
-const BlockLibrary := preload("res://scripts/build/block_library.gd")
-const WorldTerrain := preload("res://scripts/build/terrain.gd")
-const WORLD_MANAGER_PATH := "res://scripts/world/world_manager.gd"
-const TOAST_PATH := "res://scripts/ui/toast.gd"
-const GRID := 0.5
-const MAX_BLOCKS := 12000
-const UNDO_LIMIT := 50
-const TERRAIN_RADIUS := 3.0
-const RAY_DIST := 120.0
-const TAP_GUARD_MS := 120
-
-var active := false
-
-var _tool := "place"
-var _shape := "box"
-var _material := "plastic"
-var _color := BlockLibrary.DEFAULT_COLOR
-var _paint := "grass"
-var _terrain: Node = null
-var _camera: Camera3D = null
-var _ghost: MeshInstance3D = null
-var _last_hit := Vector3.ZERO
-var _has_hit := false
-var _undo_stack: Array = []
-var _redo_stack: Array = []
-var _wm: GDScript = null
-var _toast_scr: GDScript = null
-var _blocks_cache: Node3D = null
-var _id_base := 0
-var _id_seq := 0
-var _id_seeded := false
-var _last_action_ms := 0
+var test_max_blocks := -1
+var _root: Node3D = null
+var _parts := {}
+var _nodes := {}
+var _next_id := 1
+var _undo: Array = []
+var _redo: Array = []
+var _no_history := false
 
 
-func _ready() -> void:
-	if ResourceLoader.exists(WORLD_MANAGER_PATH):
-		_wm = load(WORLD_MANAGER_PATH) as GDScript
-	if ResourceLoader.exists(TOAST_PATH):
-		_toast_scr = load(TOAST_PATH) as GDScript
-	_id_base = Time.get_ticks_msec()
-	_make_ghost()
+func setup(root: Node3D) -> void:
+	_root = root
 
 
-## Seed _id_seq past the max numeric suffix in existing block IDs,
-## so new placements never collide with saved block IDs.
-func _seed_id_seq_from_blocks(root: Node3D) -> void:
-	_id_seeded = true
-	if root == null:
-		return
-	var max_suffix := 0
-	for c in root.get_children():
-		var n := c as Node3D
-		if n == null:
-			continue
-		var bd: Variant = n.get_meta("block_data", {})
-		if not (bd is Dictionary):
-			continue
-		var bid := String((bd as Dictionary).get("id", ""))
-		if bid.begins_with("b") and bid.substr(1).is_valid_int():
-			max_suffix = max(max_suffix, int(bid.substr(1)))
-	_id_seq = max(_id_seq, max_suffix)
+func snap(v: Vector3) -> Vector3:
+	var g := GameConfig.GRID_SIZE
+	return Vector3(roundf(v.x / g) * g, roundf(v.y / g) * g, roundf(v.z / g) * g)
 
 
-func activate(on: bool) -> void:
-	active = on
-	if _ghost != null:
-		_ghost.visible = false
-
-
-func set_terrain(t: Node) -> void:
-	_terrain = t
-
-
-func set_camera(cam: Camera3D) -> void:
-	_camera = cam
-
-
-func set_shape(shape: String) -> void:
-	if BlockLibrary.is_valid_shape(shape):
-		_shape = shape
-		if _ghost != null:
-			_ghost.mesh = BlockLibrary.make_mesh(_shape)
-
-
-func set_material(mat: String) -> void:
-	if BlockLibrary.is_valid_material(mat):
-		_material = mat
-
-
-func set_color(color: String) -> void:
-	_color = color
-	if _ghost != null:
-		var mat := _ghost.material_override as StandardMaterial3D
-		if mat != null:
-			mat.albedo_color = Color(BlockLibrary.parse_color(_color), 0.5)
-
-
-func get_color() -> String:
-	return _color
-
-
-func set_tool(tool_name: String) -> void:
-	_tool = tool_name
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if not active:
-		return
-	if event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		if mb.pressed:
-			_apply_tool_at(mb.position)
-	elif event is InputEventScreenTouch:
-		var st := event as InputEventScreenTouch
-		if st.pressed:
-			_apply_tool_at(st.position)
-
-
-func _process(_delta: float) -> void:
-	if not active:
-		if _ghost != null:
-			_ghost.visible = false
-		return
-	var hit := _ray_hit()
-	_has_hit = not hit.is_empty()
-	if _has_hit:
-		_last_hit = hit["position"]
-	if _ghost != null:
-		_ghost.visible = _has_hit and _tool == "place"
-		if _ghost.visible:
-			_ghost.position = _snap_place(
-				hit["position"], hit["normal"], BlockLibrary.default_size(_shape)
-			)
-
-
-func _apply_tool_at(screen_pos: Vector2) -> void:
-	var now := Time.get_ticks_msec()
-	if now - _last_action_ms < TAP_GUARD_MS:
-		return
-	_last_action_ms = now
-	var hit := _ray_hit(screen_pos)
-	if hit.is_empty():
-		return
-	_last_hit = hit["position"]
-	_has_hit = true
-	var collider: Object = hit.get("collider")
-	match _tool:
-		"place":
-			_do_place(hit)
-		"remove", "rotate", "anchor":
-			_edit_block(collider, _tool)
-		_:
-			_terrain_op(_tool, _last_hit)
-
-
-func _do_place(hit: Dictionary) -> void:
-	var root := _blocks_root()
-	if root == null or _wm == null:
-		return
-	if not _id_seeded:
-		_seed_id_seq_from_blocks(root)
-	if _count_blocks(root) >= MAX_BLOCKS:
-		_toast_tr("build_limit", "Batas blok tercapai (%d)" % MAX_BLOCKS)
-		return
-	var size := BlockLibrary.default_size(_shape)
-	var center := _snap_place(hit["position"], hit["normal"], size)
-	_id_seq += 1
+func place_part(
+	part_type: String,
+	pos: Vector3,
+	rot_y_deg := 0.0,
+	size := PartLibrary.default_size(),
+	color_hex := "#a3a2a5",
+	material := "plastic",
+	force_id := -1
+) -> Dictionary:
+	if not PartLibrary.is_valid_type(part_type):
+		push_warning("Tipe part tidak valid: %s" % part_type)
+		return {}
+	var max_blocks: int = test_max_blocks if test_max_blocks > 0 else GameConfig.MAX_BLOCKS
+	if count() >= max_blocks:
+		push_warning("Kuota part penuh (%d)" % max_blocks)
+		return {}
+	var snapped := snap(pos)
+	var new_id := force_id if force_id > 0 else _next_id
+	_next_id = maxi(_next_id + 1, new_id + 1)
 	var data := {
-		"id": "b%d" % (_id_base + _id_seq),
-		"shape": _shape,
-		"pos": [center.x, center.y, center.z],
+		"id": new_id,
+		"type": part_type.to_lower(),
+		"pos": [snapped.x, snapped.y, snapped.z],
+		"rot_y_deg": fposmod(rot_y_deg, 360.0),
 		"size": [size.x, size.y, size.z],
-		"color": _color,
-		"mat": _material,
+		"color": color_hex.to_lower(),
+		"material": material.to_lower(),
 		"anchored": true,
 	}
-	var node: Node3D = _wm.call("place_block", root, data)
+	var node := PartLibrary.make_part(
+		part_type, size, PartLibrary.color_from_hex(color_hex), material
+	)
+	node.name = "Part%d" % data["id"]
+	node.position = snapped
+	node.rotation_degrees.y = float(data["rot_y_deg"])
+	var parent: Node = _root if _root != null else self
+	parent.add_child(node)
+	_parts[data["id"]] = data
+	_nodes[data["id"]] = node
+	_push_undo({"op": "place", "id": data["id"], "data": data.duplicate()})
+	GameEvents.part_added.emit(data.duplicate())
+	return data.duplicate()
+
+
+func remove_part(id: int) -> bool:
+	if not _parts.has(id):
+		return false
+	var data: Dictionary = _parts[id]
+	var node: Node = _nodes[id]
+	if is_instance_valid(node):
+		node.queue_free()
+	_parts.erase(id)
+	_nodes.erase(id)
+	_push_undo({"op": "remove", "data": data.duplicate()})
+	GameEvents.part_removed.emit(id)
+	return true
+
+
+func move_part(id: int, pos: Vector3) -> bool:
+	var node := _get_node(id)
 	if node == null:
-		return
-	_push_history({"data": data, "removed": false})
-	block_changed.emit(data, false)
-	var total := GameState.add_stat("blocks_placed")
-	GameState.unlock_achievement("first_block")
-	if total >= 100:
-		GameState.unlock_achievement("builder_100")
+		return false
+	var snapped := snap(pos)
+	var from: Array = _parts[id]["pos"]
+	_parts[id]["pos"] = [snapped.x, snapped.y, snapped.z]
+	node.position = snapped
+	_push_undo({"op": "move", "id": id, "from": from, "to": _parts[id]["pos"]})
+	return true
 
 
-func _edit_block(collider: Object, op: String) -> void:
-	var data := _block_data(collider)
-	var node := collider as Node3D
-	if data.is_empty() or node == null:
-		return
-	var root := _blocks_root()
-	if op == "remove":
-		if _wm != null and root != null:
-			_wm.call("remove_block", root, node)
-		else:
-			node.queue_free()
-		_push_history({"data": data, "removed": true})
-		block_changed.emit(data, true)
-	elif op == "rotate":
-		var prev_snap := data.duplicate(true)
-		node.rotation.y += PI * 0.5
-		data["rot_y"] = wrapf(node.rotation.y, 0.0, TAU)
-		if _wm != null and root != null:
-			_wm.call("sync_block_transform", root, node)
-		_push_history(
-			{"data": data.duplicate(true), "prev": prev_snap, "removed": false, "op": "rotate"}
+func rotate_part(id: int, deg := GameConfig.ROT_STEP_DEG) -> bool:
+	var node := _get_node(id)
+	if node == null:
+		return false
+	var from: float = _parts[id]["rot_y_deg"]
+	var to := fposmod(from + deg, 360.0)
+	_parts[id]["rot_y_deg"] = to
+	node.rotation_degrees.y = to
+	_push_undo({"op": "rotate", "id": id, "from": from, "to": to})
+	return true
+
+
+func recolor_part(id: int, color_hex: String) -> bool:
+	var node := _get_node(id)
+	if node == null or not _is_valid_hex(color_hex):
+		return false
+	var from: String = _parts[id]["color"]
+	var to := color_hex.to_lower()
+	_parts[id]["color"] = to
+	var mesh := node.get_node_or_null("Mesh") as MeshInstance3D
+	if mesh != null:
+		mesh.material_override = MaterialsLib.make(
+			_parts[id]["material"], PartLibrary.color_from_hex(to)
 		)
-		block_changed.emit(data, false)
-	elif _wm != null:
-		var prev_anch: bool = bool(data.get("anchored", true))
-		var prev_snap := data.duplicate(true)
-		data = data.duplicate(true)
-		data["anchored"] = not prev_anch
-		if root != null:
-			_wm.call("apply_block_update", root, data, false)
-		_push_history(
-			{"data": data.duplicate(true), "prev": prev_snap, "removed": false, "op": "anchor"}
-		)
-		block_changed.emit(data, false)
+	_push_undo({"op": "recolor", "id": id, "from": from, "to": to})
+	return true
 
 
-func terrain_raise() -> void:
-	_terrain_op("raise")
-
-
-func terrain_lower() -> void:
-	_terrain_op("lower")
-
-
-func terrain_flatten() -> void:
-	_terrain_op("flatten")
-
-
-func terrain_paint(paint_name: String) -> void:
-	if paint_name in WorldTerrain.PAINTS:
-		_paint = paint_name
-	_terrain_op("paint")
-
-
-func _terrain_op(op_name: String, pos: Vector3 = Vector3.INF) -> void:
-	if pos == Vector3.INF:
-		if not _has_hit:
-			var hit := _ray_hit()
-			if hit.is_empty():
-				return
-			_last_hit = hit["position"]
-			_has_hit = true
-		pos = _last_hit
-	if _terrain == null or not is_instance_valid(_terrain):
-		_toast_tr("build_no_terrain", "Terrain not available")
-		return
-	if not _terrain.has_method(op_name):
-		return
-	if op_name == "paint":
-		_terrain.call("paint", pos.x, pos.z, TERRAIN_RADIUS, _paint)
-	else:
-		_terrain.call(op_name, pos.x, pos.z, TERRAIN_RADIUS)
-
-
-func undo() -> void:
-	_step_history(_undo_stack, _redo_stack, true)
-
-
-func redo() -> void:
-	_step_history(_redo_stack, _undo_stack, false)
-
-
-func _step_history(from_stack: Array, to_stack: Array, undoing: bool) -> void:
-	if from_stack.is_empty():
-		return
-	var entry: Dictionary = from_stack.pop_back()
-	var data: Dictionary = entry.get("data", {})
-	if data.is_empty():
-		return
-	to_stack.append(entry)
-	var root := _blocks_root()
-	if root == null:
-		return
-	if entry.has("prev"):
-		var prev: Dictionary = entry.get("prev", {})
-		# Only revert if the block still exists; if a place-undo already removed
-		# it, applying prev would re-create it (wrong — the rotate/anchor op
-		# effectively never happened once the block is gone).
-		var rev_id := String(prev.get("id", ""))
-		var rev_target: Node3D = null
-		for child in root.get_children():
-			var n := child as Node3D
-			if n == null or n.is_queued_for_deletion():
-				continue
-			var bd: Variant = n.get_meta("block_data", {})
-			if bd is Dictionary and String((bd as Dictionary).get("id", "")) == rev_id:
-				rev_target = n
-				break
-		if rev_target != null and _wm != null:
-			var rev_data: Dictionary = prev if undoing else data
-			_wm.call("apply_block_update", root, rev_data, false)
-			block_changed.emit(rev_data, false)
-		return
-	if bool(entry.get("removed", false)) != undoing:
-		var id := String(data.get("id", ""))
-		var target: Node3D = null
-		for child in root.get_children():
-			var n := child as Node3D
-			if n == null or n.is_queued_for_deletion():
-				continue
-			var bd: Variant = n.get_meta("block_data", {})
-			if bd is Dictionary and String((bd as Dictionary).get("id", "")) == id:
-				target = n
-				break
-		if target == null:
-			return
-		if _wm != null:
-			_wm.call("remove_block", root, target)
-		else:
-			target.queue_free()
-		block_changed.emit(data, true)
-	elif _wm != null:
-		_wm.call("place_block", root, data)
-		block_changed.emit(data, false)
-
-
-func _push_history(entry: Dictionary) -> void:
-	_undo_stack.append(entry)
-	while _undo_stack.size() > UNDO_LIMIT:
-		_undo_stack.pop_front()
-	_redo_stack.clear()
-
-
-## Pusat blok: snap (floor(p/0.5)*0.5) + size*0.5; p = titik bidang kena ray.
-func _snap_place(pos: Vector3, normal: Vector3, size: Vector3) -> Vector3:
-	var half := size * 0.5
-	var raw_min := pos + normal * half - half
-	return (
-		Vector3(
-			floor(raw_min.x / GRID) * GRID,
-			floor(raw_min.y / GRID) * GRID,
-			floor(raw_min.z / GRID) * GRID
-		)
-		+ half
+func duplicate_part(id: int) -> Dictionary:
+	if not _parts.has(id):
+		return {}
+	var data: Dictionary = _parts[id]
+	var pos := Vector3(
+		float(data["pos"][0]) + 2.0 * GameConfig.GRID_SIZE,
+		float(data["pos"][1]),
+		float(data["pos"][2])
+	)
+	return place_part(
+		data["type"],
+		pos,
+		float(data["rot_y_deg"]),
+		Vector3(float(data["size"][0]), float(data["size"][1]), float(data["size"][2])),
+		data["color"],
+		data["material"],
 	)
 
 
-## Ray dari kamera; tanpa argumen memakai pusat layar (mobile-first).
-func _ray_hit(screen_pos: Vector2 = Vector2.INF) -> Dictionary:
-	if not is_inside_tree() or get_world_3d() == null:
+func get_part(id: int) -> Dictionary:
+	if not _parts.has(id):
 		return {}
-	var cam := _camera
-	if cam == null or not is_instance_valid(cam):
-		var vp := get_viewport()
-		cam = vp.get_camera_3d() if vp != null else null
-	if cam == null:
-		return {}
-	if screen_pos == Vector2.INF:
-		var vp2 := get_viewport()
-		screen_pos = vp2.get_visible_rect().size * 0.5 if vp2 != null else Vector2.ZERO
-	var from := cam.project_ray_origin(screen_pos)
-	var dir := cam.project_ray_normal(screen_pos)
-	if dir == Vector3.ZERO:
-		return {}
-	var query := PhysicsRayQueryParameters3D.create(from, from + dir * RAY_DIST)
-	query.collide_with_bodies = true
-	query.collide_with_areas = false
-	return get_world_3d().direct_space_state.intersect_ray(query)
+	return (_parts[id] as Dictionary).duplicate()
 
 
-func _blocks_root() -> Node3D:
-	if _blocks_cache == null or not is_instance_valid(_blocks_cache):
-		var tree := get_tree()
-		if tree != null and tree.current_scene != null:
-			_blocks_cache = tree.current_scene.find_child("Blocks", true, false) as Node3D
-	return _blocks_cache
+func get_parts() -> Array:
+	var out: Array = []
+	var ids := _parts.keys()
+	ids.sort()
+	for id in ids:
+		out.append((_parts[id] as Dictionary).duplicate())
+	return out
 
 
-## Hitung node blok aktual (punya meta block_data) — bukan chunk count.
-func _count_blocks(root: Node3D) -> int:
-	if root == null:
-		return 0
-	var n := 0
-	for c in root.get_children():
-		var n3 := c as Node3D
-		if n3 != null and n3.has_meta("block_data"):
-			n += 1
-	return n
+func count() -> int:
+	return _parts.size()
 
 
-func _block_data(node: Object) -> Dictionary:
-	if node is Node and _wm != null:
-		var out: Variant = _wm.call("block_data_of", node)
-		return out if out is Dictionary else {}
-	var n := node as Node3D
-	return n.get_meta("block_data", {}) if n != null and n.has_meta("block_data") else {}
+func clear() -> void:
+	for id in _nodes.keys():
+		var node: Node = _nodes[id]
+		if is_instance_valid(node):
+			node.queue_free()
+	_parts.clear()
+	_nodes.clear()
+	_undo.clear()
+	_redo.clear()
 
 
-func _make_ghost() -> void:
-	_ghost = MeshInstance3D.new()
-	_ghost.name = "Ghost"
-	_ghost.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var mat := StandardMaterial3D.new()
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color(BlockLibrary.parse_color(_color), 0.5)
-	_ghost.material_override = mat
-	_ghost.mesh = BlockLibrary.make_mesh(_shape)
-	add_child(_ghost)
-	_ghost.visible = false
+func serialize() -> Array:
+	return get_parts()
 
 
-func _toast_tr(key: String, fallback: String) -> void:
-	var msg := Locale.t(key)
-	if _toast_scr != null:
-		_toast_scr.call("show", self, fallback if msg == key else msg)
+func load_parts(arr: Array) -> int:
+	clear()
+	_no_history = true
+	var loaded := 0
+	for entry in arr:
+		if not (entry is Dictionary):
+			continue
+		var d: Dictionary = entry
+		if not d.has("type") or not PartLibrary.is_valid_type(str(d["type"])):
+			continue
+		var pos_arr: Array = d.get("pos", [0.0, 0.0, 0.0])
+		var size_arr: Array = d.get("size", [4.0, 1.2, 2.0])
+		var result := place_part(
+			str(d["type"]),
+			Vector3(float(pos_arr[0]), float(pos_arr[1]), float(pos_arr[2])),
+			float(d.get("rot_y_deg", 0.0)),
+			Vector3(float(size_arr[0]), float(size_arr[1]), float(size_arr[2])),
+			str(d.get("color", "#a3a2a5")),
+			str(d.get("material", "plastic")),
+			int(d.get("id", 0)),
+		)
+		if not result.is_empty():
+			loaded += 1
+	_no_history = false
+	return loaded
+
+
+func undo() -> bool:
+	if _undo.is_empty():
+		return false
+	var op: Dictionary = _undo.pop_back()
+	var redo_op := op.duplicate()
+	_no_history = true
+	match op["op"]:
+		"place":
+			remove_part(int(op["id"]))
+		"remove":
+			_replay_place(op["data"])
+		"move":
+			_apply_move(int(op["id"]), op["from"])
+		"rotate":
+			_apply_rotation(int(op["id"]), float(op["from"]))
+		"recolor":
+			recolor_part(int(op["id"]), str(op["from"]))
+	_no_history = false
+	_redo.append(redo_op)
+	return true
+
+
+func redo() -> bool:
+	if _redo.is_empty():
+		return false
+	var op: Dictionary = _redo.pop_back()
+	_no_history = true
+	match op["op"]:
+		"place":
+			_replay_place(op["data"])
+		"remove":
+			remove_part(int(op["id"]))
+		"move":
+			_apply_move(int(op["id"]), op["to"])
+		"rotate":
+			_apply_rotation(int(op["id"]), float(op["to"]))
+		"recolor":
+			recolor_part(int(op["id"]), str(op["to"]))
+	_no_history = false
+	_undo.append(op)
+	return true
+
+
+func _replay_place(data: Dictionary) -> void:
+	var pos_arr: Array = data["pos"]
+	var size_arr: Array = data["size"]
+	place_part(
+		str(data["type"]),
+		Vector3(float(pos_arr[0]), float(pos_arr[1]), float(pos_arr[2])),
+		float(data["rot_y_deg"]),
+		Vector3(float(size_arr[0]), float(size_arr[1]), float(size_arr[2])),
+		str(data["color"]),
+		str(data["material"]),
+		int(data["id"]),
+	)
+
+
+func _apply_move(id: int, pos_arr: Array) -> void:
+	var node := _get_node(id)
+	if node == null:
+		return
+	var pos := Vector3(float(pos_arr[0]), float(pos_arr[1]), float(pos_arr[2]))
+	_parts[id]["pos"] = [pos.x, pos.y, pos.z]
+	node.position = pos
+
+
+func _apply_rotation(id: int, deg: float) -> void:
+	var node := _get_node(id)
+	if node == null:
+		return
+	_parts[id]["rot_y_deg"] = fposmod(deg, 360.0)
+	node.rotation_degrees.y = fposmod(deg, 360.0)
+
+
+func _get_node(id: int) -> Node3D:
+	if not _nodes.has(id):
+		return null
+	var node: Node3D = _nodes[id]
+	if not is_instance_valid(node):
+		return null
+	return node
+
+
+func _push_undo(op: Dictionary) -> void:
+	if _no_history:
+		return
+	_undo.append(op)
+	_redo.clear()
+
+
+func _is_valid_hex(hex_str: String) -> bool:
+	var clean := hex_str.strip_edges().to_lower()
+	if clean.length() != 7 or not clean.begins_with("#"):
+		return false
+	for i in range(1, 7):
+		if not "0123456789abcdef".contains(clean[i]):
+			return false
+	return true

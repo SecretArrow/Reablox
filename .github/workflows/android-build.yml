@@ -92,7 +92,7 @@ jobs:
           FAIL=0
           mkdir -p testlogs
           shopt -s nullglob
-          for tscn in tools/tests/test_*.tscn tools/test_mm.tscn tools/test_budget.tscn; do
+          for tscn in tools/tests/test_*.tscn; do
             name="$(basename "$tscn" .tscn)"
             echo "" && echo "================ $name ================"
             timeout 300 godot --headless "res://$tscn" 2>&1 | tee "testlogs/${name}.log" || true
