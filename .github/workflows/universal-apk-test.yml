@@ -292,7 +292,7 @@ jobs:
 
       - name: Create and boot emulator
         env:
-          ANDROID_AVD_HOME: ${{ github.workspace }}/.android/avd
+          ANDROID_AVD_HOME: ${{ runner.temp }}/avd
         run: |
           SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
           mkdir -p "$ANDROID_AVD_HOME"
@@ -369,7 +369,12 @@ jobs:
         run: |
           git config user.name "reablox-autofix[bot]"
           git config user.email "autofix@users.noreply.github.com"
-          git add -A -- ':!apk' ':!artifacts-api*' ':!tools/apk-tester/artifacts*'
+          # Mutasi runtime runner JANGAN sampai ter-push: keystore debug di
+          # export_presets.cfg, image emulator .android/ (qcow2 >1GB), android/.
+          git checkout -- export_presets.cfg 2>/dev/null || true
+          git reset -q -- export_presets.cfg 2>/dev/null || true
+          git add -A -- ':!apk' ':!artifacts-api*' ':!tools/apk-tester/artifacts*' \
+            ':!.android' ':!.android/**' ':!android' ':!android/**' ':!release-shot-*'
           if git diff --cached --quiet; then
             echo "no source changes to push"
           else

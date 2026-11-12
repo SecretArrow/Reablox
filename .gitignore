@@ -4,6 +4,10 @@
 
 # Android build template (di-generate saat CI)
 android/build/
+/android/
+
+# Emulator AVD & artefak runtime runner (universal-apk-test)
+.android/
 
 # Hasil build (hanya di root — JANGAN ignore scripts/build/)
 /build/
